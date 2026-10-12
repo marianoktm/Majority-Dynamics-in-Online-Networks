@@ -4,6 +4,7 @@ import networkx as nx
 import matplotlib.pyplot as plt
 import argparse
 import src.graph_utils as graph_utils
+import src.costs as costs
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-d', '--dataset', type=str, help='Path of the graph to be loaded')
@@ -28,7 +29,7 @@ def main():
 
     # Using a Subgraph for performance improvements during testing
     if is_test_mode:
-        snapSubgraph = graph_utils.get_connected_random_subgraph(snapGraph, 100)
+        snapSubgraph = graph_utils.get_connected_random_subgraph(snapGraph, 50)
         snapGraph = snapSubgraph
         print(f'Snap SubGraph Nodes: {snapGraph.GetNodes()}, Snap Graph Edges: {snapGraph.GetEdges()}')
 
@@ -39,6 +40,17 @@ def main():
     ##### PHASE 1: COMPUTING NODE COSTS #####
     #########################################
 
+    # Generating random costs dictionary
+    randomCosts = costs.random_cost(snapGraph)
+    print(f'Random Costs: {randomCosts}')
+
+    # Generating degree-related costs dictionary
+    degreeCeilCosts = costs.degree_ceil_cost(snapGraph)
+    print(f'Degree Ceil Costs: {degreeCeilCosts}')
+
+    # Generating custom costs dictionary
+    avgNeighborDegreeCosts = costs.avg_neighbor_degree_cost(snapGraph)
+    print(f'Average Neighbor Degree Costs: {avgNeighborDegreeCosts}')
 
 
 if __name__ == "__main__":

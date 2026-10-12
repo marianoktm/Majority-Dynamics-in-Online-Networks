@@ -129,7 +129,7 @@ def plot_snap_undirected_graph2(snap_graph, mult=1.0):
       seed=42,
       k=k_val,  # Higher value = nodes push further apart
       iterations=200,  # More steps for the layout to expand and settle
-      scale=2.0,  # Expands the outer coordinate boundaries
+      #scale=2.0,  # Expands the outer coordinate boundaries
   )
 
   # Draw nodes (fully opaque)

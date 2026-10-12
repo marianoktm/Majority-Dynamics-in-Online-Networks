@@ -38,20 +38,43 @@ def degree_ceil_cost(graph):
   return costs
 
 
-def custom_cost(graph):
-  """Placeholder for your custom user-defined cost function.
+def avg_neighbor_degree_cost(graph):
+  """Custom Cost Function: Average Degree of Neighbors.
 
-  Satisfies the project requirement to design a custom cost function
-  suitable for the problem.
+  Computes the average degree of a node's immediate neighbors,
+  rounded up to the nearest integer to satisfy integer cost requirements[cite:
+  6, 16].
 
   Args:
       graph: A SNAP graph object.
 
   Returns:
-      dict: A dictionary mapping each node ID to its custom-calculated cost.
+      dict: A dictionary mapping each node ID to its neighbor-average-based cost.
   """
   costs = {}
   for ni in graph.Nodes():
-    # TODO: Implement your custom logic here (e.g., based on centrality, clustering, etc.)
-    costs[ni.GetId()] = 1
+    node_id = ni.GetId()
+    deg = ni.GetDeg()
+
+    # Handle isolated nodes (degree 0) to avoid division by zero
+    if deg == 0:
+      costs[node_id] = 1
+      continue
+
+    # Sum the degrees of all neighbors
+    neighbor_degrees_sum = 0
+    for i in range(deg):
+      nbr_id = ni.GetNbrNId(i)
+      nbr_node = graph.GetNI(nbr_id)
+      neighbor_degrees_sum += nbr_node.GetDeg()
+
+    # Compute average neighbor degree
+    avg_neighbor_deg = neighbor_degrees_sum / deg
+
+    # Assign integer cost (minimum cost of 1, rounded up)
+    costs[node_id] = max(1, math.ceil(avg_neighbor_deg))
+
   return costs
+
+
+import math
