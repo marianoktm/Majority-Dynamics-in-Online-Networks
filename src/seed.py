@@ -69,4 +69,27 @@ def cost_seeds_greedy(G, k, costs, func_type="f1"):
 
     return seed_set
 
+# Best between f1, f2 and f3
+def select_best_strategy(results):
 
+    best_strategy = None
+    max_influenced = -1
+    min_cost = float('inf')
+
+    for t, data in results.items():
+        influenced = data["total_influenced"]
+        cost = data["spent_cost"]
+
+        # Criterio 1: Massimizzare l'influenza
+        if influenced > max_influenced:
+            max_influenced = influenced
+            min_cost = cost
+            best_strategy = t
+
+        # Criterio 2: A parità di influenza, minimizzare il costo
+        elif influenced == max_influenced:
+            if cost < min_cost:
+                min_cost = cost
+                best_strategy = t
+
+    return best_strategy, results[best_strategy]
