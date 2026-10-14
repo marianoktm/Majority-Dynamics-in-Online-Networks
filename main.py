@@ -80,6 +80,8 @@ def main():
     avg_neighbor_degree_costs = costs.avg_neighbor_degree_cost(graph)
     print("Average Neighbor Degree Costs: ", avg_neighbor_degree_costs)
 
+    print('\n====================================================================\n')
+
     # Collections of the computed costs
     graph_costs = [random_costs, degree_ceil_costs, avg_neighbor_degree_costs]
 
