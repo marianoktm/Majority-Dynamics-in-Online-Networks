@@ -1,7 +1,8 @@
+import collections
 import random
 import snap
-import networkx as nx
-import matplotlib.pyplot as plt
+from matplotlib import pyplot
+import networkx
 
 
 def read_snap_graph(file_path, graph_type='directed', format_type='edgelist'):
@@ -54,59 +55,14 @@ def read_snap_graph(file_path, graph_type='directed', format_type='edgelist'):
         )
 
 
-def plot_snap_undirected_graph(snap_graph):
-    """Converts a SNAP undirected graph (TUNGraph) to a NetworkX graph
-
-    and renders it using Matplotlib.
-    """
-    # Initialize an empty NetworkX undirected graph
-    nx_graph = nx.Graph()
-
-    # Add nodes from the SNAP graph
-    for ni in snap_graph.Nodes():
-        nx_graph.add_node(ni.GetId())
-
-    # Add edges from the SNAP graph
-    for ei in snap_graph.Edges():
-        nx_graph.add_edge(ei.GetSrcNId(), ei.GetDstNId())
-
-    # Configure the matplotlib figure size
-    plt.figure(figsize=(8, 6))
-
-    # Compute node positions using a spring layout algorithm
-    pos = nx.spring_layout(nx_graph, seed=42)  # Seed ensures reproducibility
-
-    # Draw the network
-    nx.draw(
-        nx_graph,
-        pos,
-        with_labels=False,
-        node_color='lightblue',
-        node_size=20,
-        edge_color='gray',
-        linewidths=1,
-        font_size=9,
-        font_weight='bold',
-    )
-
-    # Add title with graph statistics
-    num_nodes = nx_graph.number_of_nodes()
-    num_edges = nx_graph.number_of_edges()
-    plt.title(f'SNAP Undirected Graph Visualization\nNodes: {num_nodes}, Edges: {num_edges}')
-
-    # Display the plot
-    plt.tight_layout()
-    plt.show()
-
-
-def plot_snap_undirected_graph2(snap_graph, mult=1.0):
+def plot_snap_undirected_graph(snap_graph, mult=1.0):
   """Converts a SNAP undirected graph (TUNGraph) to a NetworkX graph
 
   and renders it using Matplotlib with a larger canvas, thin/transparent edges,
   and wider node spacing.
   """
   # Initialize an empty NetworkX undirected graph
-  nx_graph = nx.Graph()
+  nx_graph = networkx.Graph()
 
   # Add nodes from the SNAP graph
   for ni in snap_graph.Nodes():
@@ -117,14 +73,14 @@ def plot_snap_undirected_graph2(snap_graph, mult=1.0):
     nx_graph.add_edge(ei.GetSrcNId(), ei.GetDstNId())
 
   # Bigger image canvas size
-  plt.figure(figsize=(20, 20))
+  pyplot.figure(figsize=(20, 20))
 
   # Compute node positions with expanded spacing
   num_nodes = nx_graph.number_of_nodes()
   # Default k is 1 / sqrt(n). We multiply by mult to increase the target spacing.
   k_val = (mult / (num_nodes**0.5)) if num_nodes > 0 else None
 
-  pos = nx.spring_layout(
+  pos = networkx.spring_layout(
       nx_graph,
       seed=42,
       k=k_val,  # Higher value = nodes push further apart
@@ -133,69 +89,27 @@ def plot_snap_undirected_graph2(snap_graph, mult=1.0):
   )
 
   # Draw nodes (fully opaque)
-  nx.draw_networkx_nodes(
+  networkx.draw_networkx_nodes(
       nx_graph, pos, node_color='blue', node_size=22, alpha=1.0
   )
 
   # Draw edges (thin and transparent)
-  nx_graph_edges = nx.draw_networkx_edges(
+  nx_graph_edges = networkx.draw_networkx_edges(
       nx_graph, pos, edge_color='gray', width=0.4, alpha=0.50
   )
 
   # Add title with graph statistics
   num_edges = nx_graph.number_of_edges()
-  plt.title(
+  pyplot.title(
       f'SNAP Undirected Graph Visualization\nNodes: {num_nodes}, Edges:'
       f' {num_edges}',
       fontsize=14,
   )
 
   # Clean up layout and hide axis ticks
-  plt.axis('off')
-  plt.tight_layout()
-  plt.show()
-
-
-def get_random_subgraph(graph, sample_size=50):
-    """Given a SNAP graph, returns a smaller subgraph induced by a random sample of nodes.
-
-    Parameters:
-    - graph: A Snap.py graph (TNGraph, TUNGraph, or TNEANet).
-    - sample_size:
-        - If int: exact number of nodes to sample.
-        - If float (0.0 < x <= 1.0): fraction of total nodes to sample.
-
-    Returns:
-    - A smaller SNAP subgraph of the same type.
-    """
-    # Collect all node IDs from the original graph
-    node_ids = [ni.GetId() for ni in graph.Nodes()]
-    total_nodes = len(node_ids)
-
-    # Handle fraction vs absolute count for sample size
-    if isinstance(sample_size, float) and 0.0 < sample_size <= 1.0:
-        k = int(total_nodes * sample_size)
-    elif isinstance(sample_size, int):
-        k = sample_size
-    else:
-        raise ValueError(
-            "sample_size must be an integer count or a float fraction (0.0, 1.0]."
-        )
-
-    # Ensure sample size is within safe bounds
-    k = max(1, min(k, total_nodes))
-
-    # Randomly select node IDs
-    sampled_node_ids = random.sample(node_ids, k)
-
-    # Extract and return the induced subgraph using SNAP's native method
-    subgraph = graph.GetSubGraph(sampled_node_ids)
-
-    return subgraph
-
-import collections
-import random
-import snap
+  pyplot.axis('off')
+  pyplot.tight_layout()
+  pyplot.show()
 
 
 def get_connected_random_subgraph(graph, sample_size=50):

@@ -1,129 +1,80 @@
 import random
 import snap
-import networkx as nx
-import matplotlib.pyplot as plt
+import networkx
+import matplotlib.pyplot as pyplot
 import argparse
+import math
+
+from src import graph_utils
 
 
-
-import diffusion
-import src.graph_utils as graph_utils
-import src.costs as costs
-import seed
-import plotting
-
+# Parser
 parser = argparse.ArgumentParser()
-parser.add_argument('-d', '--dataset', type=str, help='Path of the graph to be loaded')
-parser.add_argument('--test', action='store_true', help='Enable test mode to run on a smaller random subgraph for performance')
+
+# Dataset input argument.
+parser.add_argument('-d',
+                    '--dataset', type=str,
+                    help='Path of the graph to be loaded')
+
+# Test mode argument (uses a subgraph for performance reasons).
+parser.add_argument('--test',
+                    action='store_true',
+                    help='Enable test mode to run on a smaller random subgraph for performance')
+
+# Budget input argument (if not set, calculates and uses the maximum budget).
+parser.add_argument('-b',
+                    '--budget',
+                    type=int,
+                    default=None,
+                    help='Budget available for seed selection. If not available, calculates a maximum budget')
+
 
 def main():
-    # Read dataset path argument and testing options
+    ##############################
+    ### PRELIMINARY OPERATIONS ###
+    ##############################
     args = parser.parse_args()
 
-    dataset_path = args.dataset
-    print(f'Dataset: {dataset_path}')
+    # Getting input graph path from command line.
+    data_path = args.dataset
+    print("Data Path: ", data_path)
 
-    is_test_mode = args.test
-    print(f'is_test_mode: {is_test_mode}')
+    # Loading the graph with SNAP as an edgelist.
+    print('Loading Graph Data...')
+    graph = graph_utils.read_snap_graph(file_path=data_path, graph_type='undirected', format_type='edgelist')
+    print(f'SNAP Graph Nodes: {graph.GetNodes()}, Snap Graph Edges: {graph.GetEdges()}')
 
-    ######################################
-    ##### PHASE 0: READING THE GRAPH #####
-    ######################################
-    # Read Snap Graph
-    snapGraph = graph_utils.read_snap_graph(dataset_path, graph_type='undirected', format_type='edgelist')
-    print(f'Snap Graph Nodes: {snapGraph.GetNodes()}, Snap Graph Edges: {snapGraph.GetEdges()}')
+    # Check whether test mode is enabled. If yes, convert the graph into a random subgraph.
+    test_mode = args.test
+    if test_mode:
+        print('Test mode enabled!')
+        print("Converting graph to subgraph (10% size)...")
+        subgraph = graph_utils.get_connected_random_subgraph(graph=graph, sample_size=math.ceil(graph.GetNodes()*0.1))
+        graph = subgraph
+        print(f'SNAP SubGraph Nodes: {graph.GetNodes()}, Snap Graph Edges: {graph.GetEdges()}')
 
-    # Using a Subgraph for performance improvements during testing
-    if is_test_mode:
-        snapSubgraph = graph_utils.get_connected_random_subgraph(snapGraph, 75)
-        snapGraph = snapSubgraph
-        print(f'Snap SubGraph Nodes: {snapGraph.GetNodes()}, Snap Graph Edges: {snapGraph.GetEdges()}')
+    # Plot the graph (if the graph is big it may take a while...)
+    print('Drawing the graph...')
+    if graph.GetNodes() > 1000:
+        print('Warning: Graph has an huge number of nodes! It might take a while...')
+    graph_utils.plot_snap_undirected_graph(graph)
 
-    # Plot Graph
-    # graph_utils.plot_snap_undirected_graph2(snap_graph=snapGraph)
+    ##########################################
+    ### EXPERIMENT 1: MODIFYING THE BUDGET ###
+    ##########################################
 
-    #########################################
-    ##### PHASE 1: COMPUTING NODE COSTS #####
-    #########################################
+    ####################################
+    ### EXPERIMENT 2: REMOVING EDGES ###
+    ####################################
 
-    # Generating random costs dictionary
-    randomCosts = costs.random_cost(snapGraph)
-    print(f'Random Costs: {randomCosts}')
+    #####################################################
+    ### EXPERIMENT 3: REMOVING VERTEX (AND NEIGHBORS) ###
+    #####################################################
 
-    # Generating degree-related costs dictionary
-    degreeCeilCosts = costs.degree_ceil_cost(snapGraph)
-    print(f'Degree Ceil Costs: {degreeCeilCosts}')
-
-    # Generating custom costs dictionary
-    avgNeighborDegreeCosts = costs.avg_neighbor_degree_cost(snapGraph)
-    print(f'Average Neighbor Degree Costs: {avgNeighborDegreeCosts}')
-
-    #########################################
-    ##### PHASE 2: SEEDSET ALGORITHMS #####
-    #########################################
-
-    G = snapGraph
-    costsNode = randomCosts
-    costsTot = 0
-    seed_setCost = 0
-
-# budget bilanced
-    for v in G.Nodes():
-        node_id = v.GetId()
-        c = costsNode[node_id]
-        costsTot += c
-    # print(f'Total Costs: {costsTot}')
-    #budget = costsTot / 2
-    budget = 100
-
-    ### Algorithm 1 ###
-    types = ["f1", "f2", "f3"] # tipologie funzioni di influenza
-    results = {}
-
-    print(f"Budget: {budget} | Costi assegnati a {snapGraph.GetNodes()} nodi.\n")
+    ############################
+    ### PLOTTING THE RESULTS ###
+    ############################
 
 
-    for t in types:
-        # Trova il seed set ottimale per quella funzione
-        seed_set = seed.cost_seeds_greedy(G, budget, costsNode, func_type=t)
-        for v in seed_set:
-            seed_setCost += costsNode[v]
-        print(f"Seed Set: {seed_setCost}")
-
-        # Simula la cascata reale per quel seed set
-        final_active_nodes = diffusion.simulate_cascade(G, seed_set)
-
-        results[t] = {
-            "seeds": seed_set,
-            "total_influenced": len(final_active_nodes),
-            "spent_cost": seed_setCost
-        }
-
-        print(f"Risultato con {t}:")
-        print(f"  Seed Set: {seed_set}")
-        print(f"  Costo speso: {seed_setCost} / Budget: {budget}")
-        print(f"  Persone totali influenzate: {results[t]['total_influenced']}\n")
-
-        #plot_diffusion_comparison(G, seed_set, final_active_nodes)
-        plotting.plot_diffusion_costs(G, seed_set, final_active_nodes, costsNode)
-        seed_setCost = 0
-
-    best_name, best_data = seed.select_best_strategy(results)
-    print("\n==================================================")
-    print(f"   STRATEGIA OTTIMALE SCELTA: {best_name.upper()}")
-    print(f"   Persone influenzate: {best_data['total_influenced']}")
-    print(f"   Costo totale sostenuto: {best_data['spent_cost']}")
-    print("==================================================")
-
-
-    ### Algorithm 3 - Degree Centrality ###
-
-    seed_set = seed.centrality_cost_seeds_greedy(G,budget,costsNode)
-    degree_centrality_active_nodes = diffusion.simulate_cascade(G, seed_set)
-    plotting.plot_diffusion_costs(G, seed_set, degree_centrality_active_nodes, costsNode)
-    print("\n====================================================")
-    print(f"Degree Centrality: {len(seed_set)}")
-
-
-if __name__ == "__main__":
-    main()
+if __name__ == '__main__':
+   main()

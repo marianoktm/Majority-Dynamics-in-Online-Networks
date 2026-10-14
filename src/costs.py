@@ -3,18 +3,6 @@ import random
 
 
 def random_cost(graph, min_val=1, max_val=10):
-  """Generates a random integer cost within a fixed range for each node.
-
-  Satisfies the project requirement for random node costs.
-
-  Args:
-      graph: A SNAP graph object.
-      min_val (int): The minimum cost value (inclusive). Defaults to 1.
-      max_val (int): The maximum cost value (inclusive). Defaults to 10.
-
-  Returns:
-      dict: A dictionary mapping each node ID to its generated integer cost.
-  """
   costs = {}
   for ni in graph.Nodes():
     costs[ni.GetId()] = random.randint(min_val, max_val)
@@ -22,16 +10,6 @@ def random_cost(graph, min_val=1, max_val=10):
 
 
 def degree_ceil_cost(graph):
-  """Computes the degree-based cost function c(u) = ceil(d(u) / 2) for each node.
-
-  Satisfies the project requirement for degree-based node costs.
-
-  Args:
-      graph: A SNAP graph object.
-
-  Returns:
-      dict: A dictionary mapping each node ID to half its degree rounded up.
-  """
   costs = {}
   for ni in graph.Nodes():
     costs[ni.GetId()] = math.ceil(ni.GetDeg() / 2)
@@ -39,18 +17,6 @@ def degree_ceil_cost(graph):
 
 
 def avg_neighbor_degree_cost(graph):
-  """Custom Cost Function: Average Degree of Neighbors.
-
-  Computes the average degree of a node's immediate neighbors,
-  rounded up to the nearest integer to satisfy integer cost requirements[cite:
-  6, 16].
-
-  Args:
-      graph: A SNAP graph object.
-
-  Returns:
-      dict: A dictionary mapping each node ID to its neighbor-average-based cost.
-  """
   costs = {}
   for ni in graph.Nodes():
     node_id = ni.GetId()
@@ -75,6 +41,3 @@ def avg_neighbor_degree_cost(graph):
     costs[node_id] = max(1, math.ceil(avg_neighbor_deg))
 
   return costs
-
-
-import math
