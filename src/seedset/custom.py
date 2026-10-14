@@ -1,0 +1,2 @@
+def custom():
+    return
