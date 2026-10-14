@@ -63,7 +63,7 @@ def main():
     #########################################
 
     G = snapGraph
-    costsNode = degreeCeilCosts
+    costsNode = randomCosts
     costsTot = 0
     seed_setCost = 0
 
@@ -114,6 +114,15 @@ def main():
     print(f"   Persone influenzate: {best_data['total_influenced']}")
     print(f"   Costo totale sostenuto: {best_data['spent_cost']}")
     print("==================================================")
+
+
+    ### Algorithm 3 - Degree Centrality ###
+
+    seed_set = seed.centrality_cost_seeds_greedy(G,budget,costsNode)
+    degree_centrality_active_nodes = diffusion.simulate_cascade(G, seed_set)
+    plotting.plot_diffusion_costs(G, seed_set, degree_centrality_active_nodes, costsNode)
+    print("\n====================================================")
+    print(f"Degree Centrality: {len(seed_set)}")
 
 
 if __name__ == "__main__":
