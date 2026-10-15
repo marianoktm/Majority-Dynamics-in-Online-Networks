@@ -12,6 +12,8 @@ from src.experiments.run_experiment import run_experiment
 from src.seedset import costs_seeds_greedy, custom, wtss
 from src.experiments import budget_variation, edge_removal, vertex_removal
 
+from src.seedset import costs_seeds_greedy, wtss, custom
+
 # Parser
 parser = argparse.ArgumentParser()
 
