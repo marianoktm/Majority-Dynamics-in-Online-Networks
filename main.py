@@ -9,10 +9,10 @@ import math
 
 from src import graph_utils, costs
 from src.experiments.run_experiment import run_experiment
-from src.seedset import costs_seeds_greedy, custom, wtss
+from src.seedset import cost_seeds_greedy, centrality_cost_seeds_greedy, wtss
 from src.experiments import budget_variation, edge_removal, vertex_removal
 
-from src.seedset import costs_seeds_greedy, wtss, custom
+from src.seedset import cost_seeds_greedy, wtss, centrality_cost_seeds_greedy
 
 # Parser
 parser = argparse.ArgumentParser()
@@ -88,7 +88,7 @@ def main():
     graph_costs = [random_costs, degree_ceil_costs, avg_neighbor_degree_costs]
 
     # Collection of the seed set functions
-    seed_set_functions = [costs_seeds_greedy, wtss, custom]
+    seed_set_functions = [cost_seeds_greedy, wtss, centrality_cost_seeds_greedy]
 
     # Pairs of seed_set_functions and graph_costs to run the experiments easily
     experiment_pairs = list(product(seed_set_functions, graph_costs))

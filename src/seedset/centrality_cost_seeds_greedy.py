@@ -1,7 +1,6 @@
-def centrality_cost_seeds_greedy(G, budget, costs):
-
+def centrality_cost_seeds_greedy(graph, budget, costs):
     # controllo esistenza nodi
-    n_nodes = G.GetNodes()
+    n_nodes = graph.GetNodes()
     if n_nodes <= 1:
         return set()
 
@@ -10,7 +9,7 @@ def centrality_cost_seeds_greedy(G, budget, costs):
 
     # calcolo score (Centrality / Costo) per TUTTI i nodi in anticipo
     node_scores = []
-    for v in G.Nodes():
+    for v in graph.Nodes():
         node_id = v.GetId()
         deg = v.GetDeg()
         cost = costs[node_id]  # Costo del nodo (default 1 per sicurezza)
