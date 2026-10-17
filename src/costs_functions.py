@@ -41,3 +41,17 @@ def avg_neighbor_degree_cost(graph):
     costs[node_id] = max(1, math.ceil(avg_neighbor_deg))
 
   return costs
+
+
+def average_cost(costs):
+  """Calculates the average cost across all nodes.
+
+  Args:
+    costs (dict): A dictionary mapping node IDs to their costs.
+
+  Returns:
+    float: The average cost, or 0 if the dictionary is empty.
+  """
+  if not costs:
+    return 0
+  return sum(costs.values()) / len(costs)
