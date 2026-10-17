@@ -50,8 +50,8 @@ def average_cost(costs):
     costs (dict): A dictionary mapping node IDs to their costs.
 
   Returns:
-    float: The average cost, or 0 if the dictionary is empty.
+    int: The average cost (ceil-ed), or 0 if the dictionary is empty.
   """
   if not costs:
     return 0
-  return sum(costs.values()) / len(costs)
+  return math.ceil(sum(costs.values()) / len(costs))

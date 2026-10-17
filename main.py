@@ -105,6 +105,9 @@ def main():
         budget = args.budget
     else:
         budget = costs_functions.average_cost(random_costs)
+    print("Budget: ", budget)
+
+    print('\n====================================================================\n')
 
 
     ##########################################
