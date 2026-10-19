@@ -4,7 +4,7 @@ def wtss(graph, budget, costs):
     such that c(S) <= budget, using SNAP.py.
 
     Parameters:
-    - Graph: snap.TNGraph or snap.TUNGraph, the social network graph
+    - graph: snap.TNGraph or snap.TUNGraph, the social network graph
     - costs: dict, mapping node IDs (int) to their costs (int)
     - budget: int, the maximum allowed cost (k) for the seed set S
 
@@ -38,7 +38,7 @@ def wtss(graph, budget, costs):
 
     # Step 3: Loop while U is not empty
     while U:
-        # Case 1: Check if there exists v in U such that threshold[v] == 0
+        # --- Case 1: Find v in U such that k(v) == 0 ---
         case1_v = None
         for v in U:
             if threshold[v] == 0:
@@ -47,65 +47,65 @@ def wtss(graph, budget, costs):
 
         if case1_v is not None:
             v = case1_v
+            S.add(v)
             for u in N[v]:
                 if u in U:
                     threshold[u] = max(0, threshold[u] - 1)
             U.remove(v)
+            continue
 
-        else:
-            # Case 2: Check if there exists v in U such that delta[v] < threshold[v]
-            case2_v = None
-            for v in U:
-                if delta[v] < threshold[v]:
-                    case2_v = v
-                    break
+        # --- Case 2: Find v in U such that delta(v) < k(v) ---
+        case2_v = None
+        for v in U:
+            if delta[v] < threshold[v]:
+                case2_v = v
+                break
 
-            if case2_v is not None:
-                v = case2_v
-                # Check budget constraint before adding to S
-                potential_cost = get_current_cost(S) + costs.get(v, 0)
-                if potential_cost <= budget:
-                    S.add(v)
-                else:
-                    # Budget exceeded for maximal seed set, stop selection
-                    break
-
+        if case2_v is not None:
+            v = case2_v
+            # Check budget constraint
+            if get_current_cost(S) + costs.get(v, 0) <= budget:
+                S.add(v)
                 for u in N[v]:
                     if u in U:
-                        threshold[u] = threshold[u] - 1
+                        threshold[u] = max(0, threshold[u] - 1)
                 U.remove(v)
-
+                continue  # Success, move to next iteration
             else:
-                # Case 3: Greedy selection on remaining vertices in U
-                if not U:
-                    break
+                # Budget exceeded for Case 2.
+                # According to pseudo-code "else", we fall through to Case 3
+                pass
 
-                best_v = None
-                max_val = -1.0
-                for u in U:
-                    d_u = delta[u]
-                    k_u = threshold[u]
-                    c_u = costs.get(u, 0)
+        # --- Case 3: Greedy selection on remaining vertices in U ---
+        best_v = None
+        max_val = -1.0
 
-                    if d_u * (d_u + 1) == 0:
-                        val = 0.0
-                    else:
-                        val = (c_u * k_u) / float(d_u * (d_u + 1))
+        for u in U:
+            d_u = delta[u]
+            k_u = threshold[u]
+            c_u = costs.get(u, 0)
 
-                    if val > max_val:
-                        max_val = val
-                        best_v = u
+            if d_u * (d_u + 1) == 0:
+                val = 0.0
+            else:
+                # Formula: c(u) * k(u) / (delta(u) * (delta(u) + 1))
+                val = (c_u * k_u) / float(d_u * (d_u + 1))
 
-                if best_v is None:
-                    break
+            if val > max_val:
+                max_val = val
+                best_v = u
 
-                v = best_v
-                # Remove v from the graph and update neighbor degrees/sets
-                for u in N[v]:
-                    if u in U:
-                        delta[u] = delta[u] - 1
-                        if v in N[u]:
-                            N[u].remove(v)
-                U.remove(v)
+        if best_v is not None:
+            v = best_v
+            # Remove v from the graph and update neighbor degrees/sets
+            for u in N[v]:
+                if u in U:
+                    delta[u] = delta[u] - 1
+                    if v in N[u]:
+                        N[u].remove(v)
+            U.remove(v)
+        else:
+            # Safety break if no node can be selected (should not happen with correct logic)
+            break
 
     return S

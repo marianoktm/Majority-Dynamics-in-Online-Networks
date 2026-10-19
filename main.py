@@ -15,6 +15,7 @@ from src.seedset.cost_seeds_greedy import cost_seeds_greedy
 from src.seedset.wtss import wtss
 from src.seedset.centrality_cost_seeds_greedy import centrality_cost_seeds_greedy
 
+
 # Parser
 parser = argparse.ArgumentParser()
 
@@ -58,7 +59,7 @@ def main():
     if test_mode:
         print('Test mode enabled!')
         print("Converting graph to subgraph (10% size)...")
-        subgraph = graph_utils.get_connected_random_subgraph(graph=graph, sample_size=math.ceil(graph.GetNodes()*0.1))
+        subgraph = graph_utils.get_connected_random_subgraph(graph=graph, sample_size=math.ceil(graph.GetNodes()*0.01))
         graph = subgraph
         print(f'SNAP SubGraph Nodes: {graph.GetNodes()}, Snap Graph Edges: {graph.GetEdges()}')
 
@@ -66,7 +67,7 @@ def main():
     print('Drawing the graph...')
     if graph.GetNodes() > 1000:
         print('Warning: Graph has an huge number of nodes! It might take a while...')
-    graph_utils.plot_snap_undirected_graph(graph)
+    #graph_utils.plot_snap_undirected_graph(graph)
 
     print('\n====================================================================\n')
 
@@ -86,20 +87,18 @@ def main():
     print('\n====================================================================\n')
 
     # Tuples of seed_set_functions and graph_costs to run the experiments easily
-    experiment_pairs = {}
-
-    experiment_pairs["random-costs-cost-seeds-greedy"] = (random_costs, cost_seeds_greedy)
+    experiment_pairs = dict()
+    #experiment_pairs["random-costs-cost-seeds-greedy"] = (random_costs, cost_seeds_greedy)
     experiment_pairs["random-costs-wtss"] = (random_costs, wtss)
-    experiment_pairs["random-costs-centrality-cost-seeds-greedy"] = (random_costs, avg_neighbor_degree_costs)
+    #experiment_pairs["random-costs-centrality-cost-seeds-greedy"] = (random_costs, centrality_cost_seeds_greedy)
 
-    experiment_pairs["degree-ceil-costs-cost-seeds-greedy"] = (degree_ceil_costs, cost_seeds_greedy)
-    experiment_pairs["degree-ceil-costs-wtss"] = (degree_ceil_costs, wtss)
-    experiment_pairs["degree-ceil-costs-centrality-cost-seeds-greedy"] = (degree_ceil_costs, centrality_cost_seeds_greedy)
+    #experiment_pairs["degree-ceil-costs-cost-seeds-greedy"] = (degree_ceil_costs, cost_seeds_greedy)
+    #experiment_pairs["degree-ceil-costs-wtss"] = (degree_ceil_costs, wtss)
+    #experiment_pairs["degree-ceil-costs-centrality-cost-seeds-greedy"] = (degree_ceil_costs, centrality_cost_seeds_greedy)
 
-    experiment_pairs["avg-neighbor-degree-costs-cost-seeds-greedy"] = (avg_neighbor_degree_costs, cost_seeds_greedy)
-    experiment_pairs["avg-neighbor-degree-costs-wtss"] = (avg_neighbor_degree_costs, wtss)
-    experiment_pairs["avg-neighbor-degree-costs-centrality-cost-seeds-greedy"] = (avg_neighbor_degree_costs, centrality_cost_seeds_greedy)
-
+    #experiment_pairs["avg-neighbor-degree-costs-cost-seeds-greedy"] = (avg_neighbor_degree_costs, cost_seeds_greedy)
+    #experiment_pairs["avg-neighbor-degree-costs-wtss"] = (avg_neighbor_degree_costs, wtss)
+    #experiment_pairs["avg-neighbor-degree-costs-centrality-cost-seeds-greedy"] = (avg_neighbor_degree_costs, centrality_cost_seeds_greedy)
     # Budget (if not set, calculates it based on average random cost of nodes)
     if args.budget is not None:
         budget = args.budget
@@ -124,22 +123,22 @@ def main():
     ####################################
     ### EXPERIMENT 2: REMOVING EDGES ###
     ####################################
-    edges_experiment_results = run_experiment(experiment_function=edge_removal.edge_removal_experiment,
-                                              graph=graph,
-                                              experiment_pairs=experiment_pairs)
-    print("Edges Experiment Results:")
-    print(edges_experiment_results)
+    #edges_experiment_results = run_experiment(experiment_function=edge_removal.edge_removal_experiment,
+                                             # graph=graph,
+                                             # experiment_pairs=experiment_pairs)
+    #print("Edges Experiment Results:")
+    #print(edges_experiment_results)
 
     print('\n====================================================================\n')
 
     #####################################################
     ### EXPERIMENT 3: REMOVING VERTEX (AND NEIGHBORS) ###
     #####################################################
-    vertex_experiment_results = run_experiment(experiment_function=vertex_removal.vertex_removal_experiment,
-                                               graph=graph,
-                                               experiment_pairs=experiment_pairs)
-    print("Vertex Experiment Results:")
-    print(edges_experiment_results)
+    #vertex_experiment_results = run_experiment(experiment_function=vertex_removal.vertex_removal_experiment,
+                                              # graph=graph,
+                                              # experiment_pairs=experiment_pairs)
+    #print("Vertex Experiment Results:")
+    #print(edges_experiment_results)
 
     print('\n====================================================================\n')
 

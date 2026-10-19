@@ -3,7 +3,7 @@ import math
 import src.simulate_cascade
 
 
-def calculate_influence(graph, seed_set, func_type="f1"):
+def calculate_influence(graph, seed_set, func_type):
     total_influence = 0
     for v in graph.Nodes():
         node_id = v.GetId()
@@ -25,11 +25,13 @@ def calculate_influence(graph, seed_set, func_type="f1"):
     return total_influence
 
 
-def cost_seeds_greedy(graph, budget, costs):
+def cost_seeds_greedy(graph, costs, budget):
     types = ["f1", "f2", "f3"]
     best_seed_set = set()
     max_cascade_impact = -1
     best_strategy_name = ""
+
+    print("Budget:", budget)
 
     for func_type in types:
         seed_set = set()

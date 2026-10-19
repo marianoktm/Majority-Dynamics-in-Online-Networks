@@ -9,5 +9,6 @@ def run_experiment(experiment_function, graph, experiment_pairs, budget = 0):
         print("Costs:", costs)
         print("Seed Set Function:", seed_set_function.__name__)
         results[name] = experiment_function(graph=graph, costs=costs, seed_set_function=seed_set_function, budget=budget)
+
     return results
 
