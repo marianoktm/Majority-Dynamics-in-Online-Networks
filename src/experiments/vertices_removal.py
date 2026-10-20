@@ -4,15 +4,6 @@ import snap
 from src import simulate_cascade
 
 
-
-import random
-import snap
-
-
-import random
-import snap
-
-
 def vertices_removal_experiment_recalc(
     graph,
     costs,

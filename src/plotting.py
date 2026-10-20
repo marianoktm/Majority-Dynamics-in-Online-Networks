@@ -1,7 +1,9 @@
+from datetime import datetime
 import os
 
 import matplotlib.pyplot as plt
 
+timestamp = datetime.now().strftime("%Y-%m-%d at %H-%M-%S")
 
 def plot_experiment_results(data, xlabel="xlabel", ylabel="ylabel",
                             title="title", figsize=(10, 6),
@@ -36,7 +38,8 @@ def plot_experiment_results(data, xlabel="xlabel", ylabel="ylabel",
 
     # Optional file export
     if save_path:
-        save_file_path = os.path.join(save_path, title)
+        filename = f"{title} {timestamp}.png"
+        save_file_path = os.path.join(save_path, filename)
         plt.savefig(save_file_path, dpi=300, bbox_inches='tight')
         print(f"Plot \"{title}.png\" successfully saved to {save_path}")
 

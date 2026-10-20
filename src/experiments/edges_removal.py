@@ -6,12 +6,6 @@ import graph_utils
 from src import simulate_cascade
 
 
-
-import math
-import random
-import snap
-
-
 def edges_removal_experiment_recalc(graph, costs, budget, seed_set_function, max_steps=None, seed=None):
     """
     Randomly remove edges and measure influence.
