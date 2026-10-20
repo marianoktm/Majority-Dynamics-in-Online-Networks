@@ -34,16 +34,3 @@ def simulate_cascade(graph, seed_set):
 
     return active_nodes
 
-
-
-def simulate_cascade2(graph, seed_set):
-    active_nodes = set(seed_set)
-    new_activations = True
-
-    while new_activations:
-        new_activations = False
-        nodes_to_activate = []
-        for v in graph.Nodes():
-            node_id = v.GetId()
-            if node_id not in active_nodes: neighbors = set(v.GetOutEdges())
-
