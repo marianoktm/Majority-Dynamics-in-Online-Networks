@@ -2,168 +2,141 @@ import heapq
 import math
 
 
-def wtss2(graph, budget, costs):
-    """
-    Implements the WTSS algorithm to find a maximal seed set S
-    such that c(S) <= budget, using SNAP.py.
-
-    Parameters:
-    - graph: snap.TNGraph or snap.TUNGraph, the social network graph
-    - costs: dict, mapping node IDs (int) to their costs (int)
-    - budget: int, the maximum allowed cost (k) for the seed set S
-
-    Returns:
-    - S: set, the selected seed set
-    """
-    S = set()
-    U = set()
-
-    delta = {}  # Remaining degree in U
-    threshold = {}  # Current threshold k(v) = ceil(d(v)/2) initially
-    N = {}  # Neighbor sets for each node
-
-    # Step 1 & 2: Initialize graph structures and thresholds for all nodes in V
-    for NI in graph.Nodes():
-        v = NI.GetId()
-        deg = NI.GetDeg()
-        U.add(v)
-        delta[v] = deg
-        # Threshold t(v) = ceil(d(v)/2)
-        threshold[v] = (deg + 1) // 2
-
-        # Collect neighbors
-        neighbors = set()
-        for i in range(NI.GetDeg()):
-            # Use GetNbrNId(i) for general graphs, or handle both directed/undirected if needed.
-            # For TUNGraph/TNGraph, GetNbrNId(i) or GetOutNId(i) gets the neighbor ID at index i.
-            try:
-                n_id = NI.GetOutNId(i)
-            except AttributeError:
-                n_id = NI.GetNbrNId(i)
-            neighbors.add(n_id)
-        N[v] = neighbors
-
-    def get_current_cost(seed_set):
-        return sum(costs.get(v, 0) for v in seed_set)
-
-    # Step 3: Loop while U is not empty
-    while U:
-        # --- Case 1: Find v in U such that k(v) == 0 ---
-        case1_v = None
-        for v in U:
-            if threshold[v] == 0:
-                case1_v = v
-                break
-
-        if case1_v is not None:
-            v = case1_v
-            S.add(v)
-            for u in N[v]:
-                if u in U:
-                    threshold[u] = max(0, threshold[u] - 1)
-            U.remove(v)
-            continue
-
-        # --- Case 2: Find v in U such that delta(v) < k(v) ---
-        case2_v = None
-        for v in U:
-            if delta[v] < threshold[v]:
-                case2_v = v
-                break
-
-        if case2_v is not None:
-            v = case2_v
-            # Check budget constraint
-            if get_current_cost(S) + costs.get(v, 0) <= budget:
-                S.add(v)
-                for u in N[v]:
-                    if u in U:
-                        threshold[u] = max(0, threshold[u] - 1)
-                U.remove(v)
-                continue  # Success, move to next iteration
-            else:
-                # Budget exceeded for Case 2.
-                # According to pseudo-code "else", we fall through to Case 3
-                pass
-
-        # --- Case 3: Greedy selection on remaining vertices in U ---
-        best_v = None
-        max_val = -1.0
-
-        for u in U:
-            d_u = delta[u]
-            k_u = threshold[u]
-            c_u = costs.get(u, 0)
-
-            if d_u * (d_u + 1) == 0:
-                val = 0.0
-            else:
-                # Formula: c(u) * k(u) / (delta(u) * (delta(u) + 1))
-                val = (c_u * k_u) / float(d_u * (d_u + 1))
-
-            if val > max_val:
-                max_val = val
-                best_v = u
-
-        if best_v is not None:
-            v = best_v
-            # Remove v from the graph and update neighbor degrees/sets
-            for u in N[v]:
-                if u in U:
-                    delta[u] = delta[u] - 1
-                    if v in N[u]:
-                        N[u].remove(v)
-            U.remove(v)
-        else:
-            # Safety break if no node can be selected (should not happen with correct logic)
-            break
-
-    return S
-
-
 def wtss(graph, costs, budget):
     """
-    WTSS (Weighted Target Set Selection) on an undirected SNAP graph.
+    Compute a seed set using a greedy Weighted Target Set Selection (WTSS)
+    heuristic on an undirected SNAP graph with majority thresholds.
 
-    graph  : snap.TUNGraph
-    costs  : dict {node_id: int cost}
-    budget : max total cost allowed for the seed set
+    The algorithm progressively removes vertices from a working graph.
+    During removal, it updates each remaining vertex's degree and residual
+    activation threshold to determine whether that vertex:
 
-    Returns seed_set = set() of node ids.
+      1. Can be activated without selecting it as a seed.
+      2. Must be selected as a seed because too few neighbors remain.
+      3. Can be selected using a greedy cost-based score.
+
+    Vertices in Case 1 are removed without cost. Vertices in Case 2 are
+    added to the seed-selection list. Vertices in Case 3 are selected
+    greedily according to a score based on their cost, residual threshold,
+    and current degree.
+
+    After the removal process, the algorithm constructs a feasible seed
+    set by accepting selected vertices in selection order until adding
+    another vertex would exceed the budget.
+
+    Parameters
+    ----------
+    graph : snap.TUNGraph
+        Undirected input graph. Self-loops are ignored when constructing
+        the working adjacency representation.
+
+    costs : dict[int, int | float]
+        Mapping from every node ID to its nonnegative selection cost.
+
+    budget : int | float
+        Maximum total cost permitted for the returned seed set.
+
+    Returns
+    -------
+    set[int]
+        The selected seed nodes, with total cost not exceeding budget.
+
+    Notes
+    -----
+    The algorithm uses the majority threshold
+
+        t(v) = ceil(d(v) / 2)
+
+    where d(v) is the degree in the initial graph.
+
+    During the algorithm, delta[v] tracks the degree of v in the remaining
+    graph, while k[v] tracks its residual threshold after accounting for
+    neighbors treated as already activated.
+
+    The heap uses lazy invalidation: entries are accepted only if their
+    stored degree and threshold still match the current values.
+
+    The final budget-enforcement step truncates the selected sequence at
+    the first vertex that would exceed the budget. It does not skip that
+    vertex and continue considering later selections.
+
+    This is a greedy heuristic; the returned set is budget-feasible, but
+    global optimality is not guaranteed.
     """
-    # ---- initialisation (lines 1-2) ----
-    N = {}        # N(v): neighbors still in U
-    delta = {}    # delta(v): current degree in the remaining graph
-    k = {}        # k(v): remaining threshold
+    # 1. INITIALIZE THE WORKING GRAPH AND VERTEX THRESHOLDS
+
+    N = {} # N[v] contains the neighbors of v that have not yet been removed.
+    delta = {} # delta[v] is the current degree of v in the remaining graph.
+    k = {} # k[v] is the residual number of active neighbors required by v. Initially, this is the majority threshold ceil(d(v) / 2).
 
     for NI in graph.Nodes():
         v = NI.GetId()
+
+        # Convert SNAP's neighbor iterator into a Python set.
         nbrs = {NI.GetNbrNId(i) for i in range(NI.GetDeg())}
-        nbrs.discard(v)                          # ignore self-loops
+
+        # Ignore self-loops so a vertex cannot count itself as a neighbor.
+        nbrs.discard(v)
+
         N[v] = nbrs
         delta[v] = len(nbrs)
-        k[v] = math.ceil(delta[v] / 2)           # t(v) = ceil(d(v)/2)
+        k[v] = math.ceil(delta[v] / 2)
 
+    # U contains all vertices that have not yet been removed.
     U = set(N)
-    S = []                                       # seeds, in selection order
 
+    # Store selected seeds in the order in which the algorithm selects them. Selection order is used later when enforcing the budget.
+    S = []
+
+    # 2. CLASSIFY VERTICES INTO SPECIAL CASES
+
+    # Case 1: k[v] == 0.
+    # The vertex requires no additional active neighbors and can be removed without selecting it as a seed.
     case1 = {v for v in U if k[v] == 0}
+
+    # Case 2: delta[v] < k[v].
+    # Even if every remaining neighbor were active, v could not reach its residual threshold. It must therefore be selected as a seed.
     case2 = {v for v in U if delta[v] < k[v]}
 
+    # Remaining eligible vertices are handled greedily by Case 3. The heap stores negative scores because heapq is a min-heap.
     heap = []
 
     def push(v):
-        # Case 3 score; delta(v) > 0 is guaranteed whenever v is
-        # eligible for Case 3 (otherwise it would be Case 1 or Case 2).
-        if delta[v] > 0:
-            score = costs[v] * k[v] / (delta[v] * (delta[v] + 1))
-            heapq.heappush(heap, (-score, v, delta[v], k[v]))
+        """
+        Insert a candidate into the Case 3 priority queue.
 
+        The greedy score is
+
+            score(v) = costs[v] * k[v] / (delta[v] * (delta[v] + 1))
+
+        A lower score is preferred because the heap stores its negative.
+
+        The current degree and residual threshold are stored with the entry.
+        These values allow outdated entries to be detected when popped.
+
+        Vertices with zero degree are not inserted. Under the intended
+        classification, a zero-degree vertex belongs to Case 1 or Case 2.
+        """
+        if delta[v] > 0:
+            score = (costs[v] * k[v] / (delta[v] * (delta[v] + 1)))
+            heapq.heappush(heap,(-score, v, delta[v], k[v]))
+
+    # Initially, all vertices are candidates for Case 3. Case 1 and Case 2 have priority over heap-based selection.
     for v in U:
         push(v)
 
     def refresh(u):
-        """Re-classify u after its delta/k changed."""
+        """
+        Update a vertex's classification and heap entry after its state
+        changes.
+
+        A vertex whose residual threshold reaches zero is placed in Case 1.
+        Otherwise, if its current degree is below its residual threshold,
+        it is placed in Case 2.
+
+        A fresh heap entry is also inserted. Any older entries become stale
+        and will be ignored when they are eventually popped.
+        """
         if k[u] == 0:
             case1.add(u)
             case2.discard(u)
@@ -171,56 +144,95 @@ def wtss(graph, costs, budget):
             case2.add(u)
         push(u)
 
-    # ---- main loop (line 3) ----
+    # 3. ITERATIVELY REMOVE VERTICES
+
     while U:
+        # Case 1: Remove a vertex that needs no further active neighbors
         if case1:
-            # Case 1: v is activated by already-removed neighbors; free.
             v = case1.pop()
+
+            # Ignore entries for vertices that have already been removed.
             if v not in U:
                 continue
-            influences = True
-            dk = True            # lower neighbors' k (never below 0)
-        elif case2:
-            # Case 2: not enough neighbors left -> must be a seed.
-            v = case2.pop()
-            if v not in U or not (delta[v] < k[v]):
-                continue
-            S.append(v)
+
+            # Treat v as activated. Its removal reduces the residual
+            # thresholds of its remaining neighbors.
             influences = True
             dk = True
+
+
+        # Case 2: Select a vertex that cannot meet its residual threshold
+        elif case2:
+            v = case2.pop()
+
+            # Recheck the conditions because the classification sets may stale entries following earlier updates.
+            if v not in U or not (delta[v] < k[v]):
+                continue
+
+            # This vertex must be selected as a seed.
+            S.append(v)
+
+            # Treat the selected seed as activated when updating neighbors.
+            influences = True
+            dk = True
+
+
+        # Case 3: Select the remaining vertex with the best greedy score
         else:
-            # Case 3: greedy pick, assumed activated by neighbors in U.
             v = None
+
             while heap:
-                _, u, d_u, k_u = heapq.heappop(heap)
-                if u in U and delta[u] == d_u and k[u] == k_u:
+                _, u, stored_delta, stored_k = heapq.heappop(heap)
+
+                # Lazy invalidation accepts the entry only if the vertex is still present and its degree and threshold have notchanged since this entry was created.
+                if u in U and delta[u] == stored_delta and k[u] == stored_k:
                     v = u
                     break
-            if v is None:        # safety net; should not happen
+
+            # Exit if the queue is exhausted.
+            if v is None:
                 break
-            influences = False   # v is NOT active before its neighbors
+
+            # Unlike Cases 1 and 2, this greedy removal does not assume that v is already activated by the remaining vertices.
+            # Consequently, it does not reduce neighbors' thresholds.
+            influences = False
             dk = False
 
-        # ---- effect on neighbors (lines 8 / 14) ----
+        # 4. UPDATE RESIDUAL THRESHOLDS OF REMAINING NEIGHBORS
+
+        # When v is treated as activated, each remaining neighbor u gains one active neighbor. Its residual threshold therefore decreases by one, but never becomes negative.
         if influences and dk:
             for u in N[v]:
                 k[u] = max(0, k[u] - 1)
 
-        # ---- remove v from the graph (lines 17-20) ----
+        # 5. REMOVE v AND UPDATE THE REMAINING GRAPH
+
+        # Delete v from each neighbor's adjacency set and decrement that neighbor's current degree.
         for u in N[v]:
             delta[u] -= 1
             N[u].discard(v)
+
+            # The updated degree and threshold may change u's case or score.
             refresh(u)
+
+        # v has now been processed and must no longer be considered.
         U.discard(v)
+
+        # Remove v from the special-case sets in case it was present.
         case1.discard(v)
         case2.discard(v)
 
-    # ---- enforce the budget ----
+    # 6. ENFORCE THE BUDGET
+
+    # The removal procedure may select seeds whose combined cost exceeds the budget. Rebuild a feasible seed set in selection order.
     seed_set = set()
     spent = 0
+
     for v in S:
+        # Stop at the first seed that would exceed the available budget. Later seeds are not considered, even if they are cheaper.
         if spent + costs[v] > budget:
             break
+
         seed_set.add(v)
         spent += costs[v]
 

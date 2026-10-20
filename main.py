@@ -61,7 +61,7 @@ def main():
     # Loading the graph with SNAP as an edgelist.
     print('Loading Graph Data...')
     graph = graph_utils.read_snap_graph(file_path=data_path, graph_type='undirected', format_type='edgelist')
-    print(f'SNAP Graph Nodes: {graph.GetNodes()}, Snap Graph Edges: {graph.GetEdges()}')
+    print(f'SNAP Graph Nodes: {graph.GetNodes()}, Snap Graph Edges: {graph.GetEdges()}, Type: {type(graph)}')
 
     print('\n====================================================================\n')
 
@@ -70,7 +70,7 @@ def main():
     if test_mode:
         print('Test mode enabled!')
         print("Converting graph to subgraph (10% size)...")
-        subgraph = graph_utils.get_connected_random_subgraph(graph=graph, sample_size=math.ceil(graph.GetNodes()*0.1))
+        subgraph = graph_utils.get_connected_random_subgraph(graph=graph, sample_size=math.ceil(graph.GetNodes()*0.05))
         graph = subgraph
         print(f'SNAP SubGraph Nodes: {graph.GetNodes()}, Snap Graph Edges: {graph.GetEdges()}')
 
@@ -117,7 +117,7 @@ def main():
     if args.budget is not None:
         budget = args.budget
     else:
-        budget = math.ceil(costs_functions.average_cost(random_costs) * graph.GetNodes() / 5)
+        budget = math.ceil(costs_functions.average_cost(random_costs) * graph.GetNodes() * 0.20)
     print("Budget: ", budget)
 
     print('\n====================================================================\n')
@@ -126,12 +126,12 @@ def main():
     ### EXPERIMENT 1: MODIFYING THE BUDGET ###
     ##########################################
     # RANDOM COSTS
-    budget_experiment_results_rc = run_experiment(experiment_function=budget_variation.budget_variation_experiment,
+    budget_results_rc = run_experiment(experiment_function=budget_variation.budget_variation_experiment,
                                                graph=graph,
                                                experiment_pairs=experiment_pairs_rc)
     print("Budget Experiment Results (Random Costs):")
-    print(budget_experiment_results_rc)
-    plotting.plot_experiment_results(data=budget_experiment_results_rc,
+    print(budget_results_rc)
+    plotting.plot_experiment_results(data=budget_results_rc,
                                      xlabel='Budget',
                                      ylabel='|Inf[G,S]|',
                                      title='Budget Experiment Results (Random Costs)',
@@ -140,12 +140,12 @@ def main():
     print('\n====================================================================\n')
 
     # DEGREE COSTS
-    budget_experiment_results_dc = run_experiment(experiment_function=budget_variation.budget_variation_experiment,
+    budget_results_dc = run_experiment(experiment_function=budget_variation.budget_variation_experiment,
                                                   graph=graph,
                                                   experiment_pairs=experiment_pairs_dc)
     print("Budget Experiment Results (Degree Costs):")
-    print(budget_experiment_results_dc)
-    plotting.plot_experiment_results(data=budget_experiment_results_dc,
+    print(budget_results_dc)
+    plotting.plot_experiment_results(data=budget_results_dc,
                                      xlabel='Budget',
                                      ylabel='|Inf[G,S]|',
                                      title='Budget Experiment Results (Degree Costs)',
@@ -154,12 +154,12 @@ def main():
     print('\n====================================================================\n')
 
     # AVERAGE NEIGHBOR DEGREE COSTS
-    budget_experiment_results_andc = run_experiment(experiment_function=budget_variation.budget_variation_experiment,
+    budget_results_andc = run_experiment(experiment_function=budget_variation.budget_variation_experiment,
                                                     graph=graph,
                                                     experiment_pairs=experiment_pairs_dc)
     print("Budget Experiment Results (Average Neighbor Degree Costs):")
-    print(budget_experiment_results_andc)
-    plotting.plot_experiment_results(data=budget_experiment_results_andc,
+    print(budget_results_andc)
+    plotting.plot_experiment_results(data=budget_results_andc,
                                      xlabel='Budget',
                                      ylabel='|Inf[G,S]|',
                                      title='Budget Experiment Results (Average Neighbor Degree Costs)',
@@ -171,6 +171,48 @@ def main():
     ### EXPERIMENT 2: REMOVING EDGES ###
     ####################################
 
+    # RANDOM COSTS
+    edges_removal_results_rc = run_experiment(experiment_function=edges_removal.edges_removal_experiment,
+                                              graph=graph,
+                                              experiment_pairs=experiment_pairs_rc,
+                                              budget=budget)
+    print("Edges Removal Experiment Results (Random Costs):")
+    print(edges_removal_results_rc)
+    plotting.plot_experiment_results(data=edges_removal_results_rc,
+                                     xlabel='Removed Edges',
+                                     ylabel='|Inf[G\',S]|',
+                                     title='Edges Removal Experiment Results (Random Costs)',
+                                     save_path=save_path)
+
+    print('\n====================================================================\n')
+
+    # DEGREE COSTS
+    edges_removal_results_dc = run_experiment(experiment_function=edges_removal.edges_removal_experiment,
+                                              graph=graph,
+                                              experiment_pairs=experiment_pairs_dc,
+                                              budget=budget)
+    print("Edges Removal Experiment Results (Degree Costs):")
+    print(edges_removal_results_dc)
+    plotting.plot_experiment_results(data=edges_removal_results_dc,
+                                     xlabel='Removed Edges',
+                                     ylabel='|Inf[G\',S]|',
+                                     title='Edges Removal Experiment Results (Degree Costs)',
+                                     save_path=save_path)
+
+    print('\n====================================================================\n')
+
+    # AVERAGE NEIGHBOR DEGREE COSTS
+    edges_removal_results_andc = run_experiment(experiment_function=edges_removal.edges_removal_experiment,
+                                                graph=graph,
+                                                experiment_pairs=experiment_pairs_dc,
+                                                budget=budget)
+    print("Edges Removal Experiment Results (Average Neighbor Degree Costs):")
+    print(edges_removal_results_andc)
+    plotting.plot_experiment_results(data=edges_removal_results_andc,
+                                     xlabel='Removed Edges',
+                                     ylabel='|Inf[G\',S]|',
+                                     title='Edges Removal Experiment Results (Average Neighbor Degree Costs)',
+                                     save_path=save_path)
 
     print('\n====================================================================\n')
 
@@ -178,6 +220,48 @@ def main():
     ### EXPERIMENT 3: REMOVING VERTEX (AND NEIGHBORS) ###
     #####################################################
 
+    # RANDOM COSTS
+    vertices_removal_results_rc = run_experiment(experiment_function=vertices_removal.vertices_removal_experiment,
+                                              graph=graph,
+                                              experiment_pairs=experiment_pairs_rc,
+                                              budget=budget)
+    print("Vertices Removal Experiment Results (Random Costs):")
+    print(vertices_removal_results_rc)
+    plotting.plot_experiment_results(data=vertices_removal_results_rc,
+                                     xlabel='Removed Vertices',
+                                     ylabel='|Inf[G\',S]|',
+                                     title='Vertices Removal Experiment Results (Random Costs)',
+                                     save_path=save_path)
+
+    print('\n====================================================================\n')
+
+    # DEGREE COSTS
+    vertices_removal_results_dc = run_experiment(experiment_function=vertices_removal.vertices_removal_experiment,
+                                              graph=graph,
+                                              experiment_pairs=experiment_pairs_dc,
+                                              budget=budget)
+    print("Vertices Removal Experiment Results (Degree Costs):")
+    print(vertices_removal_results_dc)
+    plotting.plot_experiment_results(data=vertices_removal_results_dc,
+                                     xlabel='Removed Vertices',
+                                     ylabel='|Inf[G\',S]|',
+                                     title='Vertices Removal Experiment Results (Degree Costs)',
+                                     save_path=save_path)
+
+    print('\n====================================================================\n')
+
+    # AVERAGE NEIGHBOR DEGREE COSTS
+    vertices_removal_results_andc = run_experiment(experiment_function=vertices_removal.vertices_removal_experiment,
+                                                graph=graph,
+                                                experiment_pairs=experiment_pairs_dc,
+                                                budget=budget)
+    print("Vertices Removal Experiment Results (Average Neighbor Degree Costs):")
+    print(vertices_removal_results_andc)
+    plotting.plot_experiment_results(data=vertices_removal_results_andc,
+                                     xlabel='Removed Vertices',
+                                     ylabel='|Inf[G\',S]|',
+                                     title='Vertices Removal Experiment Results (Average Neighbor Degree Costs)',
+                                     save_path=save_path)
 
     print('\n====================================================================\n')
 

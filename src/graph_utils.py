@@ -49,10 +49,7 @@ def read_snap_graph(file_path, graph_type='directed', format_type='edgelist'):
         return g_cls.Load(f_in)
 
     else:
-        raise ValueError(
-            "Invalid format_type. Choose from 'edgelist', 'edgelist_str', or"
-            " 'binary'."
-        )
+        raise ValueError("Invalid format_type. Choose from 'edgelist', 'edgelist_str', or binary'.")
 
 
 def plot_snap_undirected_graph(snap_graph, mult=1.0):

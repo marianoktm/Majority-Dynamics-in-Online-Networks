@@ -1,107 +1,18 @@
 import heapq
 import math
+import snap
 
 import src.simulate_cascade
 
 
-def calculate_influence(graph, seed_set, func_type):
-    total_influence = 0
-    for v in graph.Nodes():
-        node_id = v.GetId()
-        neighbors = set(v.GetOutEdges())
-        active_neighbors = neighbors.intersection(seed_set)
-        num_active = len(active_neighbors)
-        degree = len(neighbors)
-        threshold = math.ceil(degree / 2)
-
-        if func_type == "f1":
-            total_influence += min(num_active, threshold)
-        elif func_type == "f2":
-            for i in range(1, num_active + 1):
-                total_influence += max(threshold - i + 1, 0)
-        elif func_type == "f3":
-            for i in range(1, num_active + 1):
-                total_influence += max((threshold - i + 1) / (degree - i + 1), 0)
-
-    return total_influence
-
-
-def cost_seeds_greedy_old(graph, costs, budget):
-    types = ["f1", "f2", "f3"]
-    best_seed_set = set()
-    max_cascade_impact = -1
-    best_strategy_name = ""
-
-    print("Budget:", budget)
-
-    for func_type in types:
-        seed_set = set()
-        current_cost = 0
-
-        # Generate seed set for each influence function [f1, f2, f3]
-        while True:
-            best_node = None
-            best_ratio = -1
-            current_inf = calculate_influence(graph, seed_set, func_type)
-
-            for v in graph.Nodes():
-                node_id = v.GetId()
-                if node_id not in seed_set:
-                    seed_set.add(node_id)
-                    new_inf = calculate_influence(graph, seed_set, func_type)
-                    seed_set.remove(node_id)
-
-                    marginal_gain = new_inf - current_inf
-
-                    if current_cost + costs[node_id] <= budget:
-                        cost_node = costs[node_id]
-                        if cost_node > 0:
-                            ratio = marginal_gain / cost_node
-                            if ratio > best_ratio:
-                                best_ratio = ratio
-                                best_node = node_id
-
-            if best_node is not None:
-                seed_set.add(best_node)
-                current_cost += costs.get(best_node, 1)
-            else:
-                break
-
-        # Let's see which of the 3 strategies activated the most nodes...
-        final_active_nodes = src.simulate_cascade.simulate_cascade(graph, seed_set)
-        cascade_impact = len(final_active_nodes)  # Total nodes activated
-
-        # Compare and select the best strategy
-        if cascade_impact > max_cascade_impact:
-            max_cascade_impact = cascade_impact
-            best_seed_set = seed_set
-            best_strategy_name = func_type
-
-    print(f"Best Strategy based on Seed Set Diffusion: {best_strategy_name} (Activated nodes: {max_cascade_impact})")
-    return best_seed_set
-
-
-
-
-
-"""
-Cost-Seeds-Greedy (Algorithm 1) for the cost majority cascade problem.
-
-Given an undirected SNAP graph, a cost per node and a budget, the algorithm
-greedily builds a seed set by repeatedly adding the node with the best
-"marginal gain per unit cost", using one of three submodular functions
-(f1, f2, f3). The three resulting seed sets are compared by simulating the
-majority cascade (threshold ceil(d(v)/2)) and the best one is returned.
-"""
-import heapq
-import math
-
-import snap  # noqa: F401  (the input graph is a snap.TUNGraph; kept for clarity)
-
-
-def _build_adj(graph):
+def convert_snap_graph_to_python(graph):
     """
-    Convert a SNAP graph into plain Python structures.
+    Convert a SNAP undirected graph into Python adjacency and threshold maps.
+
+    The conversion removes self-loops and represents each node's neighborhood
+    as a Python set. Degrees and majority thresholds are computed from these
+    cleaned neighborhoods, ensuring that all returned structures are
+    consistent.
 
     Parameters
     ----------
@@ -111,137 +22,223 @@ def _build_adj(graph):
     Returns
     -------
     adj : dict[int, set[int]]
-        Neighbor set of every node (self-loops removed).
-    deg : dict[int, int]
-        Degree d(v) of every node, computed on the cleaned adjacency.
-    half : dict[int, int]
-        Majority threshold ceil(d(v) / 2) of every node.
+        Mapping from each node ID to its set of neighbors, excluding itself.
+
+    degrees : dict[int, int]
+        Degree of each node, computed from the cleaned adjacency sets.
+
+    thresh : dict[int, int]
+        Majority activation threshold for each node, defined as
+        ceil(degrees[v] / 2).
+
+    Notes
+    -----
+    Isolated nodes are retained in the adjacency dictionary with empty
+    neighborhood sets. The returned structures use ordinary Python objects,
+    making repeated neighborhood operations independent of SNAP's iterators.
     """
     adj = {}
+
+    # Extract the neighborhood of every node.
     for NI in graph.Nodes():
         v = NI.GetId()
-        nb = {NI.GetNbrNId(i) for i in range(NI.GetDeg())}
-        # A self-loop would make a node "influence itself" and inflate its
-        # degree, which has no meaning in the cascade, so we drop it.
-        nb.discard(v)
-        adj[v] = nb
-    # Degree is computed from the cleaned sets (not NI.GetDeg()) so that
-    # deg, half and adj are always consistent with each other.
-    deg = {v: len(nb) for v, nb in adj.items()}
-    # Threshold is cached because it is used constantly in the greedy loop.
-    half = {v: math.ceil(d / 2) for v, d in deg.items()}   # ceil(d(v)/2)
-    return adj, deg, half
+
+        # Convert SNAP's neighbor iterator into a Python set.
+        neighbors = {NI.GetNbrNId(i) for i in range(NI.GetDeg())}
+
+        # A node must not count itself as an influenced neighbor.
+        neighbors.discard(v)
+        adj[v] = neighbors
+
+    # Compute degrees after removing self-loops.
+    degrees = {v: len(neighbors) for v, neighbors in adj.items()}
+
+    # Cache the majority threshold used by the objective functions.
+    thresh = {
+        v: math.ceil(degree / 2)
+        for v, degree in degrees.items()
+    }
+
+    return adj, degrees, thresh
 
 
-# ---------------------------------------------------------------
-# f1, f2, f3
-# ---------------------------------------------------------------
-def f1(S, adj, deg, half):
+# ---------------------------------------------------------------------
+# Objective functions
+# ---------------------------------------------------------------------
+
+def f1(seed_set, adj, degrees, thresh):
     """
-    Objective f1(S) = sum_v min(|N(v) ∩ S|, ceil(d(v)/2)).
+    Evaluate the first seed-selection objective.
 
-    Each node counts one point per seeded neighbor, but only up to its
-    threshold: neighbors beyond the threshold are "wasted" and do not help.
+    Each node receives one unit of contribution for every seeded neighbor,
+    up to its majority threshold. Contributions from additional seeded
+    neighbors beyond that threshold are ignored.
+
+    Mathematically,
+
+        f1(S) = sum_v min(|N(v) ∩ S|, thresh[v])
+
+    where S is the seed set and N(v) is the neighborhood of node v.
 
     Parameters
     ----------
-    S : set[int]
-        Current seed set.
-    adj, deg, half : see `_build_adj`.
+    seed_set : set[int]
+        Currently selected seed nodes.
+    adj : dict[int, set[int]]
+        Node-to-neighbor mapping.
+    degrees : dict[int, int]
+        Degree of each node. Retained for a consistent objective signature.
+    thresh : dict[int, int]
+        Majority threshold of each node.
 
     Returns
     -------
     int
-        Value of f1 on S.
+        Objective value for the given seed set.
     """
-    return sum(min(len(adj[v] & S), half[v]) for v in adj)
+    return sum(
+        min(len(adj[v] & seed_set), thresh[v])
+        for v in adj
+    )
 
 
-def f2(S, adj, deg, half):
+def f2(seed_set, adj, degrees, thresh):
     """
-    Objective f2(S) = sum_v sum_{i=1}^{|N(v) ∩ S|} max(ceil(d(v)/2) - i + 1, 0).
+    Evaluate the second seed-selection objective.
 
-    Like f1, but the i-th seeded neighbor of v is worth (threshold - i + 1)
-    instead of 1, so early neighbors count more than later ones.
+    The contribution of a node decreases with the number of its seeded
+    neighbors. Its first seeded neighbor contributes thresh[v], its second
+    contributes thresh[v] - 1, and so on, with negative contributions
+    replaced by zero.
+
+    Mathematically,
+
+        f2(S) = sum_v sum_{i=1}^{|N(v) ∩ S|}
+                    max(thresh[v] - i + 1, 0)
 
     Parameters
     ----------
-    S : set[int]
-        Current seed set.
-    adj, deg, half : see `_build_adj`.
+    seed_set : set[int]
+        Currently selected seed nodes.
+    adj : dict[int, set[int]]
+        Node-to-neighbor mapping.
+    degrees : dict[int, int]
+        Degree of each node. Retained for a consistent objective signature.
+    thresh : dict[int, int]
+        Majority threshold of each node.
 
     Returns
     -------
     int
-        Value of f2 on S.
+        Objective value for the given seed set.
     """
     total = 0
+
     for v in adj:
-        for i in range(1, len(adj[v] & S) + 1):
-            # max(..., 0) stops the contribution once i exceeds the
-            # threshold; without it the terms would become negative.
-            total += max(half[v] - i + 1, 0)
+        # Count how many neighbors of v have been selected as seeds.
+        seeded_neighbors = len(adj[v] & seed_set)
+
+        # Add the diminishing contribution of each seeded neighbor.
+        for i in range(1, seeded_neighbors + 1):
+            total += max(thresh[v] - i + 1, 0)
+
     return total
 
 
-def f3(S, adj, deg, half):
+def f3(seed_set, adj, degrees, thresh):
     """
-    Objective f3(S) = sum_v sum_{i=1}^{|N(v) ∩ S|}
-                      max((ceil(d(v)/2) - i + 1) / (d(v) - i + 1), 0).
+    Evaluate the third seed-selection objective.
 
-    Same shape as f2, but each term is normalised by the number of
-    neighbors of v that are still not seeded (d(v) - i + 1). Low-degree
-    nodes are therefore "closer" to being activated per seeded neighbor.
+    This objective uses a normalized contribution that accounts for both
+    the majority threshold and the node's remaining unseeded neighbors.
+
+    Mathematically,
+
+        f3(S) = sum_v sum_{i=1}^{|N(v) ∩ S|}
+                    max((thresh[v] - i + 1)
+                        / (degrees[v] - i + 1), 0)
+
+    For a node of degree d, the denominator of the i-th contribution is
+    d - i + 1. As more neighbors are seeded, the remaining-neighbor count
+    decreases.
 
     Parameters
     ----------
-    S : set[int]
-        Current seed set.
-    adj, deg, half : see `_build_adj`.
+    seed_set : set[int]
+        Currently selected seed nodes.
+    adj : dict[int, set[int]]
+        Node-to-neighbor mapping.
+    degrees : dict[int, int]
+        Degree of each node.
+    thresh : dict[int, int]
+        Majority threshold of each node.
 
     Returns
     -------
     float
-        Value of f3 on S.
+        Objective value for the given seed set.
+
+    Notes
+    -----
+    Isolated nodes have no neighbors, so their inner sum is empty and
+    their contribution is zero. For every nonempty inner sum, the
+    denominator is positive.
     """
-    total = 0
+    total = 0.0
+
     for v in adj:
-        for i in range(1, len(adj[v] & S) + 1):
-            # i <= |N(v) ∩ S| <= d(v), so the denominator d(v) - i + 1 >= 1:
-            # no division by zero is possible here.
-            total += max((half[v] - i + 1) / (deg[v] - i + 1), 0)
+        seeded_neighbors = len(adj[v] & seed_set)
+
+        for i in range(1, seeded_neighbors + 1):
+            numerator = thresh[v] - i + 1
+            denominator = degrees[v] - i + 1
+
+            total += max(numerator / denominator, 0.0)
+
     return total
 
 
-# Marginal gains. Adding u to S only changes the terms of u's NEIGHBORS: for a
-# neighbor v that already has c seeded neighbors, the new term is the one with
-# i = c + 1 in the inner sum. Computing only this term is much faster than
-# evaluating f(S ∪ {u}) - f(S) from scratch over the whole graph.
-def _gain_f1(c, d, h):
+# ---------------------------------------------------------------------
+# Marginal-gain functions
+# ---------------------------------------------------------------------
+
+def gain_f1(c, d, h):
     """
-    Marginal gain of one more seeded neighbor for f1.
+    Compute the marginal contribution to f1 from one additional seeded
+    neighbor.
 
     Parameters
     ----------
-    c : int  Seeded neighbors the node already has, |N(v) ∩ S|.
-    d : int  Degree of the node (unused, kept for a uniform signature).
-    h : int  Threshold ceil(d/2) of the node.
+    c : int
+        Number of neighbors of the affected node that are already seeded.
+    d : int
+        Degree of the affected node. Unused; retained for a common signature.
+    h : int
+        Majority threshold of the affected node.
 
     Returns
     -------
     float
-        1.0 while the node is below its threshold, else 0.0.
+        1.0 if c < h, otherwise 0.0.
     """
     return 1.0 if c < h else 0.0
 
 
-def _gain_f2(c, d, h):
+def gain_f2(c, d, h):
     """
-    Marginal gain of one more seeded neighbor for f2 (term i = c + 1).
+    Compute the marginal contribution to f2 from one additional seeded
+    neighbor.
+
+    The next contribution is h - c, provided it is positive.
 
     Parameters
     ----------
-    c, d, h : see `_gain_f1`.
+    c : int
+        Number of neighbors of the affected node that are already seeded.
+    d : int
+        Degree of the affected node. Unused; retained for a common signature.
+    h : int
+        Majority threshold of the affected node.
 
     Returns
     -------
@@ -251,197 +248,243 @@ def _gain_f2(c, d, h):
     return float(max(h - c, 0))
 
 
-def _gain_f3(c, d, h):
+def gain_f3(c, d, h):
     """
-    Marginal gain of one more seeded neighbor for f3 (term i = c + 1).
+    Compute the marginal contribution to f3 from one additional seeded
+    neighbor.
+
+    The next contribution is normalized by the number of neighbors that
+    remain unseeded after accounting for the existing c seeded neighbors.
 
     Parameters
     ----------
-    c, d, h : see `_gain_f1`.
+    c : int
+        Number of neighbors of the affected node that are already seeded.
+    d : int
+        Degree of the affected node.
+    h : int
+        Majority threshold of the affected node.
 
     Returns
     -------
     float
         max((h - c) / (d - c), 0).
+
+    Notes
+    -----
+    This function is called only for neighbors of a candidate node.
+    Such a neighbor has d >= 1, and the maintained count satisfies c < d,
+    so the denominator is positive.
     """
-    # The gain is evaluated for a neighbor v of an UNSEEDED node u, so u is
-    # one of v's neighbors that is not seeded yet: c <= d - 1 and the
-    # denominator d - c is at least 1.
     return max((h - c) / (d - c), 0.0)
 
 
-# Lookup tables so the entry point can loop over the three functions by name.
-F_FUNCS = {"f1": f1, "f2": f2, "f3": f3}
-GAINS = {"f1": _gain_f1, "f2": _gain_f2, "f3": _gain_f3}
+# ---------------------------------------------------------------------
+# Cost-constrained greedy seed selection
+# ---------------------------------------------------------------------
 
-
-# ---------------------------------------------------------------
-# Cost-Seeds-Greedy, lazy-greedy implementation
-# ---------------------------------------------------------------
 def cost_seeds_greedy(adj, deg, half, costs, budget, gain_fn):
     """
-    Cost-Seeds-Greedy for one objective function.
+    Select seed nodes using a cost-sensitive greedy algorithm.
 
-    At each step add the node u maximising  marginal_gain(u) / cost(u).
-    Stop as soon as the total cost exceeds the budget and return the set
-    from just before that last node was added (S_p in the pseudocode).
+    At each iteration, the algorithm selects the remaining node with the
+    highest ratio of marginal objective gain to node cost:
+
+        ratio(u) = marginal_gain(u) / costs[u]
+
+    Marginal gains are maintained incrementally. Since selecting node u
+    directly changes the objective contributions of its neighbors, only
+    those neighbors need to be considered when calculating its gain.
+
+    A max-heap, implemented using negated priorities, supports lazy
+    greedy evaluation. The stored priorities are upper bounds on current
+    priorities when the marginal-gain function is nonincreasing as the
+    seed set grows. A candidate's gain is recomputed only when it reaches
+    the top of the heap.
+
+    The budget is checked after a candidate is added. If its addition
+    exceeds the budget, the algorithm returns the seed set from immediately
+    before that addition.
 
     Parameters
     ----------
-    adj, deg, half : see `_build_adj`.
-    costs : dict[int, int]
-        Cost of every node.
-    budget : int
-        Maximum total cost of the seed set.
-    gain_fn : callable(c, d, h) -> float
-        Marginal gain function of the chosen objective (_gain_f1/2/3).
+    adj : dict[int, set[int]]
+        Node-to-neighbor mapping.
+    deg : dict[int, int]
+        Degree of each node.
+    half : dict[int, int]
+        Majority threshold of each node.
+    costs : dict[int, int | float]
+        Nonnegative cost associated with every node.
+    budget : int | float
+        Maximum permitted total cost of the returned seed set.
+    gain_fn : callable
+        Function gain_fn(c, d, h) that computes the marginal contribution
+        from adding one more seeded neighbor to a node.
 
     Returns
     -------
     set[int]
-        Seed set with total cost <= budget.
+        Selected seed nodes with total cost no greater than the budget.
+
+    Notes
+    -----
+    A cost of zero is handled by replacing the denominator with 1e-9.
+    This gives zero-cost nodes a large priority when their marginal gain
+    is positive. Negative costs are not supported.
+
+    If all remaining candidates have zero marginal gain, the algorithm
+    stops early.
     """
-    # cnt[v] = |N(v) ∩ S_d|, maintained incrementally so that marginal gains
-    # can be computed without rebuilding intersections every time.
+    # cnt[v] tracks the number of neighbors of v that are currently seeds.
+    # Updating these counters avoids repeatedly computing set intersections.
     cnt = {v: 0 for v in adj}
+
+    # S_d is the current candidate solution.
+    # S_p stores the solution immediately before the most recent addition.
     S_d = set()
     S_p = set()
     spent = 0
 
     def marginal(u):
-        """Marginal gain f(S_d ∪ {u}) - f(S_d): sum over u's neighbors."""
-        return sum(gain_fn(cnt[v], deg[v], half[v]) for v in adj[u])
+        """Return the objective gain from adding u to the current seed set."""
+        return sum(
+            gain_fn(cnt[v], deg[v], half[v])
+            for v in adj[u]
+        )
 
     def ratio(u):
-        """Gain per unit cost, the quantity maximised at line 3."""
-        # max(..., 1e-9) protects against a zero cost (division by zero)
-        # while still making free nodes extremely attractive.
+        """Return the current marginal gain per unit cost of node u."""
         return marginal(u) / max(costs[u], 1e-9)
 
-    # Max-heap simulated with negated keys (heapq is a min-heap).
+    # Python's heapq is a min-heap, so negate priorities to simulate a max-heap. Node IDs provide a deterministic secondary ordering.
     heap = [(-ratio(u), u) for u in adj]
     heapq.heapify(heap)
 
     while heap:
-        # Lazy evaluation. The objectives are submodular, so a node's gain
-        # can only DECREASE as S_d grows: every ratio stored in the heap is
-        # an upper bound of the true current ratio. We therefore recompute
-        # only the top node; if it still beats the best stored bound of all
-        # the others it is guaranteed to be the true argmax, and we avoid
-        # re-evaluating every candidate at every step.
+        # Lazy evaluation recomputes the current priority of the best stored candidate.
+        # If it no longer beats the next stored bound, reinsert it with its updated priority and inspect the new top.
         while heap:
-            old, u = heapq.heappop(heap)
-            new = ratio(u)
-            # The small tolerance avoids infinite re-pushing caused by
-            # floating-point noise when two ratios are (almost) equal.
-            if not heap or -new <= heap[0][0] + 1e-12:
+            old_priority, u = heapq.heappop(heap)
+            new_ratio = ratio(u)
+
+            # The candidate is optimal among the remaining candidates if its current ratio is at least as high as every other stored upper bound, within floating-point tolerance.
+            if not heap or -new_ratio <= heap[0][0] + 1e-12:
                 break
-            # Its real value dropped below another candidate's bound:
-            # put it back with the fresh value and look at the new top.
-            heapq.heappush(heap, (-new, u))
+
+            # Its priority decreased below another candidate's bound.
+            heapq.heappush(heap, (-new_ratio, u))
         else:
             break
 
-        # If the best remaining ratio is 0 the objective is saturated:
-        # adding more nodes would only waste budget, so we stop early.
-        # (Small deviation from the pseudocode.)
-        if new <= 0:
+        # No positive marginal gain remains, so further selections cannot improve this objective.
+        if new_ratio <= 0:
             break
 
-        S_p = set(S_d)                      # S_p = S_d
-        S_d.add(u)                          # S_d = S_p ∪ {u}
+        # Save the feasible solution before attempting the next addition.
+        S_p = set(S_d)
+
+        S_d.add(u)
         spent += costs[u]
-        # The pseudocode adds the node first and checks the budget after
-        # ("until c(S_d) > k"), so the node that breaks the budget is
-        # discarded by returning the previous set S_p.
+
+        # Preserve the previous solution if this addition violates budget.
         if spent > budget:
             return S_p
-        # Update the counters only now: they must reflect S_d only when the
-        # node is actually kept.
+
+        # The candidate was accepted. Update the affected neighbors' seeded-neighbor counts so subsequent gains use the current set.
         for v in adj[u]:
             cnt[v] += 1
 
-    return S_d                              # budget never exceeded
+    return S_d
 
 
-# ---------------------------------------------------------------
-# Majority cascade simulation (threshold ceil(d/2)), used to pick the best
-# ---------------------------------------------------------------
-def cascade_size(seed_set, adj, half):
-    """
-    Simulate the majority cascade and count the activated nodes.
-
-    A node becomes active when at least ceil(d(v)/2) of its neighbors are
-    active. Seeds are active from the start.
-
-    Parameters
-    ----------
-    seed_set : set[int]
-        Initially active nodes.
-    adj, half : see `_build_adj`.
-
-    Returns
-    -------
-    int
-        Number of active nodes when the cascade stops.
-    """
-    active = set(seed_set)
-    # Isolated nodes have threshold 0: they are active without any help.
-    active.update(v for v in adj if half[v] == 0)
-    # Queue-based propagation: each node is processed once, when it becomes
-    # active, so the cost is O(n + m) instead of re-scanning the whole graph.
-    queue = list(active)
-    cnt = {v: 0 for v in adj}               # active neighbors of each node
-    while queue:
-        u = queue.pop()
-        for v in adj[u]:
-            if v in active:
-                continue
-            cnt[v] += 1
-            if cnt[v] >= half[v]:
-                active.add(v)
-                queue.append(v)
-    return len(active)
-
-
-# ---------------------------------------------------------------
+# ---------------------------------------------------------------------
 # Main entry point
-# ---------------------------------------------------------------
+# ---------------------------------------------------------------------
+
 def cost_seeds_greedy_best(graph, costs, budget):
     """
-    Run Cost-Seeds-Greedy with f1, f2 and f3 and return the best seed set.
+    Run cost-sensitive greedy seed selection for all three objectives and
+    return the seed set producing the largest majority-cascade activation.
 
-    "Best" means the set that activates the most nodes in the majority
-    cascade; ties are broken in favour of the cheaper set.
+    The algorithm independently runs the greedy procedure using f1, f2,
+    and f3 as its optimization objective. Since these objectives have
+    different scales, their numerical values are not compared directly.
+    Instead, each resulting seed set is evaluated using the actual cascade
+    simulation.
+
+    Candidate solutions are ranked lexicographically by:
+
+        (number of activated nodes, -total seed cost)
+
+    Thus, the solution activating the most nodes is preferred. If multiple
+    solutions activate the same number of nodes, the least expensive
+    solution is returned.
 
     Parameters
     ----------
     graph : snap.TUNGraph
-        Undirected input graph.
-    costs : dict[int, int]
-        Mapping node id -> integer cost (must contain every node).
-    budget : int
-        Maximum total cost of the seed set.
+        Undirected input graph on which to run the cascade.
+    costs : dict[int, int | float]
+        Mapping from every node ID to its nonnegative selection cost.
+    budget : int | float
+        Maximum permitted total seed cost.
 
     Returns
     -------
     set[int]
-        The selected seed set.
+        The best seed set among the three greedy solutions, evaluated
+        by cascade size and then total seed cost.
+
+    Raises
+    ------
+    KeyError
+        If a graph node is missing from costs.
+
+    Notes
+    -----
+    This function assumes that src.simulate_cascade.simulate_cascade
+    accepts the SNAP graph and a seed set and returns the set of activated
+    nodes. The cascade implementation determines the precise activation
+    semantics.
+
+    The greedy procedures optimize different surrogate objectives. Running
+    all three and choosing the best cascade outcome is a heuristic; it does
+    not guarantee a globally optimal seed set.
     """
-    adj, deg, half = _build_adj(graph)
+    # Convert the graph once. All three greedy runs reuse the same structures.
+    adj, deg, half = convert_snap_graph_to_python(graph)
 
-    # The key is (nodes activated, -cost): tuples compare element by element,
-    # so more activated nodes wins and, on a tie, the lower cost wins.
-    # We compare with the real cascade because the values of f1, f2 and f3
-    # live on different scales and cannot be compared with each other.
-    # best_key starts at -1 so that even the empty set (0 activated nodes,
-    # e.g. a budget too small for any seed) can replace it.
-    best_set, best_key = set(), (-1, 0)
-    for name in ("f1", "f2", "f3"):
-        S = cost_seeds_greedy(adj, deg, half, costs, budget, GAINS[name])
-        key = (cascade_size(S, adj, half), -sum(costs[v] for v in S))
+    # Associate each surrogate objective with its corresponding marginal gain.
+    gains_functions = {
+        "f1": gain_f1,
+        "f2": gain_f2,
+        "f3": gain_f3,
+    }
+
+    # Initialize the best result so that even an empty seed set can win, for example when the budget is too small to select any useful node.
+    best_set = set()
+    best_key = (-1, 0)
+
+    for name, gain_fn in gains_functions.items():
+        # Generate a candidate seed set optimized for the selected objective.
+        current_seed_set = cost_seeds_greedy(
+            adj, deg, half, costs, budget, gain_fn
+        )
+
+        # Evaluate the candidate using the actual majority-cascade process.
+        influence_set = src.simulate_cascade.simulate_cascade(
+            graph=graph,
+            seed_set=current_seed_set,
+        )
+        influence_set_size = len(influence_set)
+
+        # Prefer larger cascades; break ties by choosing the cheaper seed set.
+        total_cost = sum(costs[v] for v in current_seed_set)
+        key = (influence_set_size, -total_cost)
+
         if key > best_key:
-            best_key, best_set = key, S
+            best_key = key
+            best_set = current_seed_set
 
-    seed_set = set(best_set)
-    return seed_set
+    return set(best_set)
