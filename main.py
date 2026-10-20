@@ -156,7 +156,7 @@ def main():
     # AVERAGE NEIGHBOR DEGREE COSTS
     budget_results_andc = run_experiment(experiment_function=budget_variation.budget_variation_experiment,
                                                     graph=graph,
-                                                    experiment_pairs=experiment_pairs_dc)
+                                                    experiment_pairs=experiment_pairs_andc)
     print("Budget Experiment Results (Average Neighbor Degree Costs):")
     print(budget_results_andc)
     plotting.plot_experiment_results(data=budget_results_andc,
@@ -204,7 +204,7 @@ def main():
     # AVERAGE NEIGHBOR DEGREE COSTS
     edges_removal_results_andc = run_experiment(experiment_function=edges_removal.edges_removal_experiment,
                                                 graph=graph,
-                                                experiment_pairs=experiment_pairs_dc,
+                                                experiment_pairs=experiment_pairs_andc,
                                                 budget=budget)
     print("Edges Removal Experiment Results (Average Neighbor Degree Costs):")
     print(edges_removal_results_andc)
@@ -253,7 +253,7 @@ def main():
     # AVERAGE NEIGHBOR DEGREE COSTS
     vertices_removal_results_andc = run_experiment(experiment_function=vertices_removal.vertices_removal_experiment,
                                                 graph=graph,
-                                                experiment_pairs=experiment_pairs_dc,
+                                                experiment_pairs=experiment_pairs_andc,
                                                 budget=budget)
     print("Vertices Removal Experiment Results (Average Neighbor Degree Costs):")
     print(vertices_removal_results_andc)
