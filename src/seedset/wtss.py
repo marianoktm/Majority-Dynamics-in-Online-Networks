@@ -1,4 +1,8 @@
-def wtss(graph, budget, costs):
+import heapq
+import math
+
+
+def wtss2(graph, budget, costs):
     """
     Implements the WTSS algorithm to find a maximal seed set S
     such that c(S) <= budget, using SNAP.py.
@@ -29,7 +33,13 @@ def wtss(graph, budget, costs):
 
         # Collect neighbors
         neighbors = set()
-        for n_id in NI.GetOutNId():
+        for i in range(NI.GetDeg()):
+            # Use GetNbrNId(i) for general graphs, or handle both directed/undirected if needed.
+            # For TUNGraph/TNGraph, GetNbrNId(i) or GetOutNId(i) gets the neighbor ID at index i.
+            try:
+                n_id = NI.GetOutNId(i)
+            except AttributeError:
+                n_id = NI.GetNbrNId(i)
             neighbors.add(n_id)
         N[v] = neighbors
 
@@ -109,3 +119,109 @@ def wtss(graph, budget, costs):
             break
 
     return S
+
+
+def wtss(graph, costs, budget):
+    """
+    WTSS (Weighted Target Set Selection) on an undirected SNAP graph.
+
+    graph  : snap.TUNGraph
+    costs  : dict {node_id: int cost}
+    budget : max total cost allowed for the seed set
+
+    Returns seed_set = set() of node ids.
+    """
+    # ---- initialisation (lines 1-2) ----
+    N = {}        # N(v): neighbors still in U
+    delta = {}    # delta(v): current degree in the remaining graph
+    k = {}        # k(v): remaining threshold
+
+    for NI in graph.Nodes():
+        v = NI.GetId()
+        nbrs = {NI.GetNbrNId(i) for i in range(NI.GetDeg())}
+        nbrs.discard(v)                          # ignore self-loops
+        N[v] = nbrs
+        delta[v] = len(nbrs)
+        k[v] = math.ceil(delta[v] / 2)           # t(v) = ceil(d(v)/2)
+
+    U = set(N)
+    S = []                                       # seeds, in selection order
+
+    case1 = {v for v in U if k[v] == 0}
+    case2 = {v for v in U if delta[v] < k[v]}
+
+    heap = []
+
+    def push(v):
+        # Case 3 score; delta(v) > 0 is guaranteed whenever v is
+        # eligible for Case 3 (otherwise it would be Case 1 or Case 2).
+        if delta[v] > 0:
+            score = costs[v] * k[v] / (delta[v] * (delta[v] + 1))
+            heapq.heappush(heap, (-score, v, delta[v], k[v]))
+
+    for v in U:
+        push(v)
+
+    def refresh(u):
+        """Re-classify u after its delta/k changed."""
+        if k[u] == 0:
+            case1.add(u)
+            case2.discard(u)
+        elif delta[u] < k[u]:
+            case2.add(u)
+        push(u)
+
+    # ---- main loop (line 3) ----
+    while U:
+        if case1:
+            # Case 1: v is activated by already-removed neighbors; free.
+            v = case1.pop()
+            if v not in U:
+                continue
+            influences = True
+            dk = True            # lower neighbors' k (never below 0)
+        elif case2:
+            # Case 2: not enough neighbors left -> must be a seed.
+            v = case2.pop()
+            if v not in U or not (delta[v] < k[v]):
+                continue
+            S.append(v)
+            influences = True
+            dk = True
+        else:
+            # Case 3: greedy pick, assumed activated by neighbors in U.
+            v = None
+            while heap:
+                _, u, d_u, k_u = heapq.heappop(heap)
+                if u in U and delta[u] == d_u and k[u] == k_u:
+                    v = u
+                    break
+            if v is None:        # safety net; should not happen
+                break
+            influences = False   # v is NOT active before its neighbors
+            dk = False
+
+        # ---- effect on neighbors (lines 8 / 14) ----
+        if influences and dk:
+            for u in N[v]:
+                k[u] = max(0, k[u] - 1)
+
+        # ---- remove v from the graph (lines 17-20) ----
+        for u in N[v]:
+            delta[u] -= 1
+            N[u].discard(v)
+            refresh(u)
+        U.discard(v)
+        case1.discard(v)
+        case2.discard(v)
+
+    # ---- enforce the budget ----
+    seed_set = set()
+    spent = 0
+    for v in S:
+        if spent + costs[v] > budget:
+            break
+        seed_set.add(v)
+        spent += costs[v]
+
+    return seed_set

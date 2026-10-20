@@ -1,3 +1,4 @@
+import os
 import random
 from itertools import product
 
@@ -7,11 +8,11 @@ import matplotlib.pyplot as pyplot
 import argparse
 import math
 
-from src import graph_utils, costs_functions
+from src import graph_utils, costs_functions, plotting
 from src.experiments.run_experiment import run_experiment
-from src.experiments import budget_variation, edge_removal, vertex_removal
+from src.experiments import budget_variation, edges_removal, vertices_removal
 
-from src.seedset.cost_seeds_greedy import cost_seeds_greedy
+from src.seedset.cost_seeds_greedy import cost_seeds_greedy, cost_seeds_greedy_best
 from src.seedset.wtss import wtss
 from src.seedset.centrality_cost_seeds_greedy import centrality_cost_seeds_greedy
 
@@ -36,6 +37,12 @@ parser.add_argument('-b',
                     default=None,
                     help='Budget available for seed selection. If not available, calculates the average budget based on random costs')
 
+# Save path argument for saving plots figures (defaults to "results" in the current working directory)
+parser.add_argument('-s',
+                    '--save-path',
+                    type=str,
+                    default=os.path.join(os.getcwd(), 'results'),
+                    help='Path to the results folder to save the plots (defaults to the "result" folder in the current working directory)')
 
 def main():
     ##############################
@@ -46,6 +53,10 @@ def main():
     # Getting input graph path from command line.
     data_path = args.dataset
     print("Data Path: ", data_path)
+
+    # Ensure the save directory exists
+    save_path = args.save_path
+    os.makedirs(save_path, exist_ok=True)
 
     # Loading the graph with SNAP as an edgelist.
     print('Loading Graph Data...')
@@ -59,7 +70,7 @@ def main():
     if test_mode:
         print('Test mode enabled!')
         print("Converting graph to subgraph (10% size)...")
-        subgraph = graph_utils.get_connected_random_subgraph(graph=graph, sample_size=math.ceil(graph.GetNodes()*0.01))
+        subgraph = graph_utils.get_connected_random_subgraph(graph=graph, sample_size=math.ceil(graph.GetNodes()*0.1))
         graph = subgraph
         print(f'SNAP SubGraph Nodes: {graph.GetNodes()}, Snap Graph Edges: {graph.GetEdges()}')
 
@@ -78,8 +89,8 @@ def main():
     random_costs = costs_functions.random_cost(graph, 1, 10)
     print("Random Costs: ", random_costs)
 
-    degree_ceil_costs = costs_functions.degree_ceil_cost(graph)
-    print("Degree Ceil Costs: ", degree_ceil_costs)
+    degree_costs = costs_functions.degree_cost(graph)
+    print("Degree Costs: ", degree_costs)
 
     avg_neighbor_degree_costs = costs_functions.avg_neighbor_degree_cost(graph)
     print("Average Neighbor Degree Costs: ", avg_neighbor_degree_costs)
@@ -87,64 +98,88 @@ def main():
     print('\n====================================================================\n')
 
     # Tuples of seed_set_functions and graph_costs to run the experiments easily
-    experiment_pairs = dict()
-    #experiment_pairs["random-costs-cost-seeds-greedy"] = (random_costs, cost_seeds_greedy)
-    experiment_pairs["random-costs-wtss"] = (random_costs, wtss)
-    #experiment_pairs["random-costs-centrality-cost-seeds-greedy"] = (random_costs, centrality_cost_seeds_greedy)
+    experiment_pairs_rc= dict()
+    experiment_pairs_rc["random-costs-cost-seeds-greedy"] = (random_costs, cost_seeds_greedy_best)
+    experiment_pairs_rc["random-costs-wtss"] = (random_costs, wtss)
+    experiment_pairs_rc["random-costs-centrality-cost-seeds-greedy"] = (random_costs, centrality_cost_seeds_greedy)
 
-    #experiment_pairs["degree-ceil-costs-cost-seeds-greedy"] = (degree_ceil_costs, cost_seeds_greedy)
-    #experiment_pairs["degree-ceil-costs-wtss"] = (degree_ceil_costs, wtss)
-    #experiment_pairs["degree-ceil-costs-centrality-cost-seeds-greedy"] = (degree_ceil_costs, centrality_cost_seeds_greedy)
+    experiment_pairs_dc = dict()
+    experiment_pairs_dc["degree-costs-cost-seeds-greedy"] = (degree_costs, cost_seeds_greedy_best)
+    experiment_pairs_dc["degree-costs-wtss"] = (degree_costs, wtss)
+    experiment_pairs_dc["degree-costs-centrality-cost-seeds-greedy"] = (degree_costs, centrality_cost_seeds_greedy)
 
-    #experiment_pairs["avg-neighbor-degree-costs-cost-seeds-greedy"] = (avg_neighbor_degree_costs, cost_seeds_greedy)
-    #experiment_pairs["avg-neighbor-degree-costs-wtss"] = (avg_neighbor_degree_costs, wtss)
-    #experiment_pairs["avg-neighbor-degree-costs-centrality-cost-seeds-greedy"] = (avg_neighbor_degree_costs, centrality_cost_seeds_greedy)
+    experiment_pairs_andc = dict()
+    experiment_pairs_andc["avg-neighbor-degree-costs-cost-seeds-greedy"] = (avg_neighbor_degree_costs, cost_seeds_greedy_best)
+    experiment_pairs_andc["avg-neighbor-degree-costs-wtss"] = (avg_neighbor_degree_costs, wtss)
+    experiment_pairs_andc["avg-neighbor-degree-costs-centrality-cost-seeds-greedy"] = (avg_neighbor_degree_costs, centrality_cost_seeds_greedy)
+    
     # Budget (if not set, calculates it based on average random cost of nodes)
     if args.budget is not None:
         budget = args.budget
     else:
-        budget = costs_functions.average_cost(random_costs)
+        budget = math.ceil(costs_functions.average_cost(random_costs) * graph.GetNodes() / 5)
     print("Budget: ", budget)
 
     print('\n====================================================================\n')
 
-
     ##########################################
     ### EXPERIMENT 1: MODIFYING THE BUDGET ###
     ##########################################
-    budget_experiment_results = run_experiment(experiment_function=budget_variation.budget_variation_experiment,
+    # RANDOM COSTS
+    budget_experiment_results_rc = run_experiment(experiment_function=budget_variation.budget_variation_experiment,
                                                graph=graph,
-                                               experiment_pairs=experiment_pairs)
-    print("Budget Experiment Results:")
-    print(budget_experiment_results)
+                                               experiment_pairs=experiment_pairs_rc)
+    print("Budget Experiment Results (Random Costs):")
+    print(budget_experiment_results_rc)
+    plotting.plot_experiment_results(data=budget_experiment_results_rc,
+                                     xlabel='Budget',
+                                     ylabel='|Inf[G,S]|',
+                                     title='Budget Experiment Results (Random Costs)',
+                                     save_path=save_path)
+
+    print('\n====================================================================\n')
+
+    # DEGREE COSTS
+    budget_experiment_results_dc = run_experiment(experiment_function=budget_variation.budget_variation_experiment,
+                                                  graph=graph,
+                                                  experiment_pairs=experiment_pairs_dc)
+    print("Budget Experiment Results (Degree Costs):")
+    print(budget_experiment_results_dc)
+    plotting.plot_experiment_results(data=budget_experiment_results_dc,
+                                     xlabel='Budget',
+                                     ylabel='|Inf[G,S]|',
+                                     title='Budget Experiment Results (Degree Costs)',
+                                     save_path=save_path)
+
+    print('\n====================================================================\n')
+
+    # AVERAGE NEIGHBOR DEGREE COSTS
+    budget_experiment_results_andc = run_experiment(experiment_function=budget_variation.budget_variation_experiment,
+                                                    graph=graph,
+                                                    experiment_pairs=experiment_pairs_dc)
+    print("Budget Experiment Results (Average Neighbor Degree Costs):")
+    print(budget_experiment_results_andc)
+    plotting.plot_experiment_results(data=budget_experiment_results_andc,
+                                     xlabel='Budget',
+                                     ylabel='|Inf[G,S]|',
+                                     title='Budget Experiment Results (Average Neighbor Degree Costs)',
+                                     save_path=save_path)
 
     print('\n====================================================================\n')
 
     ####################################
     ### EXPERIMENT 2: REMOVING EDGES ###
     ####################################
-    #edges_experiment_results = run_experiment(experiment_function=edge_removal.edge_removal_experiment,
-                                             # graph=graph,
-                                             # experiment_pairs=experiment_pairs)
-    #print("Edges Experiment Results:")
-    #print(edges_experiment_results)
+
 
     print('\n====================================================================\n')
 
     #####################################################
     ### EXPERIMENT 3: REMOVING VERTEX (AND NEIGHBORS) ###
     #####################################################
-    #vertex_experiment_results = run_experiment(experiment_function=vertex_removal.vertex_removal_experiment,
-                                              # graph=graph,
-                                              # experiment_pairs=experiment_pairs)
-    #print("Vertex Experiment Results:")
-    #print(edges_experiment_results)
+
 
     print('\n====================================================================\n')
-
-    ############################
-    ### PLOTTING THE RESULTS ###
-    ############################
 
 
 if __name__ == '__main__':

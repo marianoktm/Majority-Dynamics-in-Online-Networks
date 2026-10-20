@@ -9,7 +9,7 @@ def random_cost(graph, min_val=1, max_val=10):
   return costs
 
 
-def degree_ceil_cost(graph):
+def degree_cost(graph):
   costs = {}
   for ni in graph.Nodes():
     costs[ni.GetId()] = math.ceil(ni.GetDeg() / 2)
