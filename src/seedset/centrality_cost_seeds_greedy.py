@@ -1,3 +1,6 @@
+import snap
+
+
 def centrality_cost_seeds_greedy(graph, budget, costs):
     # controllo esistenza nodi
     n_nodes = graph.GetNodes()

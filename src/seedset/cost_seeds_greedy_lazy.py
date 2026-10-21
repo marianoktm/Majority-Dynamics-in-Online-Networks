@@ -1,9 +1,7 @@
 import heapq
 import math
-
 import snap
 
-from simulate_cascade import simulate_cascade
 
 def _seed_set_cost(seed_set, costs):
     # Total price of a group of seeds. Nodes with no listed cost default to 1.

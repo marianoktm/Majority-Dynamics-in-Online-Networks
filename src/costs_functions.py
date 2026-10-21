@@ -44,14 +44,6 @@ def avg_neighbor_degree_cost(graph):
 
 
 def average_cost(costs):
-  """Calculates the average cost across all nodes.
-
-  Args:
-    costs (dict): A dictionary mapping node IDs to their costs.
-
-  Returns:
-    int: The average cost (ceil-ed), or 0 if the dictionary is empty.
-  """
   if not costs:
     return 0
   return math.ceil(sum(costs.values()) / len(costs))

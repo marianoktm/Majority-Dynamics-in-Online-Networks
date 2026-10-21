@@ -1,8 +1,6 @@
 import math
 import snap
-from networkx.classes import neighbors
 
-from simulate_cascade import simulate_cascade
 
 def _seed_set_cost(seed_set, costs):
     return sum(costs.get(node, 1) for node in seed_set)
@@ -88,18 +86,6 @@ def _cost_seeds_greedy_single(adjacency, costs, budget, target_function):
 
 
 def cost_seeds_greedy(graph, costs, budget):
-    """
-    Determines the best maximal seed set using the Cost-Seeds-Greedy algorithm
-    evaluated across the three target functions f1, f2, and f3.
-
-    Parameters:
-    - graph: An undirected SNAP graph (snap.TUNGraph).
-    - costs: A dictionary mapping SNAP node IDs (integers) to integer costs.
-    - budget: An integer representing the budget k.
-
-    Returns:
-    - A python set() containing node IDs representing the best seed set.
-    """
     # Build adjacency dictionary for performance purposes
     adjacency = _get_adjacency_dictionary(graph)
 

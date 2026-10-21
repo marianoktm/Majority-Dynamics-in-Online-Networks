@@ -1,9 +1,5 @@
 import os
-import random
-from itertools import product
 import snap
-import networkx
-import matplotlib.pyplot as pyplot
 import argparse
 import math
 
@@ -14,7 +10,17 @@ from src.experiments import budget_variation, edges_removal, vertices_removal
 from src.seedset.wtss import wtss
 from src.seedset.centrality_cost_seeds_greedy import centrality_cost_seeds_greedy
 
+# Three cost_seeds_greedy implementation were provided.
+#
+# The "slow" one is implemented according to the slides of Social Network exam of
+# University of Salerno. The "fast" one is a slight optimization of the "slow" one,
+# using local marginal gain instead of recalculating the target function on the whole
+# graph, and the lazy implementation uses a priority queue to improve the
+# cost-effectiveness-based selection of new seeds.
+
 from src.seedset.cost_seeds_greedy_lazy import cost_seeds_greedy
+# from src.seedset.cost_seeds_greedy_slow import cost_seeds_greedy
+# from src.seedset.cost_seeds_greedy_fast import cost_seeds_greedy
 
 # Parser
 parser = argparse.ArgumentParser()

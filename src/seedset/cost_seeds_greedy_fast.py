@@ -1,10 +1,6 @@
 import math
-from logging import addLevelName
-
 import snap
-from networkx.classes import neighbors
 
-from simulate_cascade import simulate_cascade
 
 def _seed_set_cost(seed_set, costs):
     return sum(costs.get(node, 1) for node in seed_set)

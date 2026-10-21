@@ -5,20 +5,7 @@ import matplotlib.pyplot as plt
 
 timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
-def plot_experiment_results(data, xlabel="xlabel", ylabel="ylabel",
-                            title="title", figsize=(10, 6),
-                            save_path=None):
-    """
-    Plots experiment results structured as {name: {x_value: y_value}}.
-
-    Parameters:
-    - data (dict): Nested dictionary of results {strategy_name: {x_val: y_val}}.
-    - xlabel (str): Label for the X-axis.
-    - ylabel (str): Label for the Y-axis.
-    - title (str): Title of the plot.
-    - figsize (tuple): Figure size dimensions (width, height).
-    - save_path (str, optional): File path to save the plot (e.g., 'experiment_plot.png').
-    """
+def plot_experiment_results(data, xlabel="xlabel", ylabel="ylabel", title="title", figsize=(10, 6), save_path=None):
     plt.figure(figsize=figsize)
 
     for name, results in data.items():
