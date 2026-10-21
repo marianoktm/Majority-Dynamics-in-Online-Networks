@@ -1,4 +1,4 @@
-# Influence Maximization with Budget Constraints under the Majority-Threshold Model
+# Majority Dynamics in Online Network
 
 Project for the **Social Network** course — University of Salerno, academic year 2025/26.
 
