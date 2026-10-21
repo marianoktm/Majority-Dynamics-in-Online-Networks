@@ -1,3 +1,11 @@
+"""
+Edges removal experiment.
+
+Computes a seed set once on the original graph and then measures how its influence
+decreases as edges are progressively removed, in random order, from a copy of the
+graph (robustness of the seed set to edge failures).
+"""
+
 import math
 import random
 import snap
@@ -6,6 +14,26 @@ from src import simulate_cascade
 
 
 def edges_removal_experiment(graph, costs, budget, seed_set_function, max_steps=None, seed=None):
+    """
+    Function: edges_removal_experiment
+
+    Computes a seed set on the original graph, then removes edges randomly (on a copy) and
+    measures how the influence of that fixed seed set changes at about 50 checkpoints.
+
+    Args:
+        graph (snap.TUNGraph): Undirected graph (not modified).
+        costs (dict): Maps each node ID (int) to its cost (int).
+        budget (int): Maximum total cost allowed for the seed set.
+        seed_set_function (callable): Function (graph, costs, budget) returning a seed set.
+        max_steps (int, optional): Maximum number of edges to remove; all edges if None. Must be non-negative.
+        seed (int, optional): Seed for the random edge order.
+
+    Returns:
+        dict: Maps number of removed edges (int) to the number of influenced nodes (int).
+
+    Raises:
+        ValueError: If max_steps is negative.
+    """
     if max_steps is not None and max_steps < 0:
         raise ValueError("max_steps must be non-negative")
 
@@ -56,6 +84,6 @@ def edges_removal_experiment(graph, costs, budget, seed_set_function, max_steps=
 
         results[x] = len(influence_set)
 
-        #print(f"Step {x}: Edges left = {graph_copy.GetEdges()}, Original seeds = {len(original_seed_set)}, Influence = {results[x]}")
+        # print(f"Step {x}: Edges left = {graph_copy.GetEdges()}, Original seeds = {len(original_seed_set)}, Influence = {results[x]}")
 
     return results

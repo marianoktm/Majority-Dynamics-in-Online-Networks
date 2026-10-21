@@ -1,3 +1,11 @@
+"""
+Graph utilities.
+
+Helpers to load SNAP graphs from several file formats, draw an undirected SNAP graph
+through NetworkX/matplotlib, and extract a connected random induced subgraph (used for
+test runs on smaller graphs).
+"""
+
 import collections
 import random
 import snap
@@ -6,6 +14,22 @@ import networkx
 
 
 def read_snap_graph(file_path, graph_type='directed', format_type='edgelist'):
+    """
+    Function: read_snap_graph
+
+    Loads a graph from a file into a SNAP graph object.
+
+    Args:
+        file_path (str): Path of the file.
+        graph_type (str, optional): 'directed', 'undirected' or 'network'. Default 'directed'.
+        format_type (str, optional): 'edgelist', 'edgelist_str' or 'binary'. Default 'edgelist'.
+
+    Returns:
+        SNAP graph: The loaded graph.
+
+    Raises:
+        ValueError: If graph_type or format_type is invalid.
+    """
     # Map text identifiers to respective Snap.py graph classes
     graph_classes = {
         'directed': snap.TNGraph,
@@ -39,6 +63,19 @@ def read_snap_graph(file_path, graph_type='directed', format_type='edgelist'):
 
 
 def plot_snap_undirected_graph(snap_graph, mult=1.0):
+    """
+    Function: plot_snap_undirected_graph
+
+    Converts a SNAP undirected graph to NetworkX, lays it out with a spring layout and
+    displays it with matplotlib.
+
+    Args:
+        snap_graph (snap.TUNGraph): Graph to draw.
+        mult (float, optional): Multiplier for the spring-layout spacing parameter k. Default 1.0.
+
+    Returns:
+        None: The plot is shown on screen.
+    """
     # Initialize an empty NetworkX undirected graph
     nx_graph = networkx.Graph()
 
@@ -91,6 +128,22 @@ def plot_snap_undirected_graph(snap_graph, mult=1.0):
 
 
 def get_connected_random_subgraph(graph, sample_size=50):
+    """
+    Function: get_connected_random_subgraph
+
+    Extracts a connected induced subgraph by random breadth-first expansion from random
+    start nodes (up to 10 attempts, keeping the largest).
+
+    Args:
+        graph (SNAP graph): Source graph.
+        sample_size (int or float, optional): Number of nodes, or fraction in (0, 1] of the nodes. Default 50.
+
+    Returns:
+        SNAP graph: Induced subgraph on the visited nodes.
+
+    Raises:
+        ValueError: If the graph is empty or sample_size is invalid.
+    """
     node_ids = [ni.GetId() for ni in graph.Nodes()]
     total_nodes = len(node_ids)
 

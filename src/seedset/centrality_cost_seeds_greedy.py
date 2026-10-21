@@ -1,7 +1,28 @@
+"""
+Centrality-based greedy seed selection.
+
+Baseline seed-selection algorithm that ranks nodes by degree centrality divided by
+cost and greedily picks the best-ranked nodes that fit in the budget.
+"""
+
 import snap
 
 
 def centrality_cost_seeds_greedy(graph, budget, costs):
+    """
+    Function: centrality_cost_seeds_greedy
+
+    Greedy seed selection by degree centrality / cost. Nodes are ranked by score; each is
+    added if it fits in the remaining budget, otherwise skipped.
+
+    Args:
+        graph (snap.TUNGraph): Undirected graph.
+        budget (int): Maximum total cost allowed for the seed set.
+        costs (dict): Maps each node ID (int) to its cost (int).
+
+    Returns:
+        set: Node IDs of the seed set (empty if the graph has 1 node or fewer).
+    """
     # controllo esistenza nodi
     n_nodes = graph.GetNodes()
     if n_nodes <= 1:

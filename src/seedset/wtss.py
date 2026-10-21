@@ -1,23 +1,48 @@
+"""
+Weighted Target Set Selection (WTSS).
+
+Heuristic that builds a seed set by iteratively removing vertices from the graph
+according to three cases (residual threshold zero, degree lower than threshold, best
+greedy cost-effectiveness), using majority thresholds, and finally enforces the
+budget on the candidate seeds.
+"""
+
 import heapq
 import math
 
 
 def wtss(graph, costs, budget):
+    """
+    Function: wtss
+
+    Weighted Target Set Selection heuristic with majority thresholds (ceil(degree / 2)).
+    Vertices are removed in three cases (zero residual threshold, degree below threshold,
+    greedy best score); vertices of case 2 become candidates, which are then filtered by
+    budget.
+
+    Args:
+        graph (snap.TUNGraph): Undirected graph.
+        costs (dict): Maps each node ID (int) to its cost (int).
+        budget (int): Maximum total cost allowed for the seed set.
+
+    Returns:
+        set: Node IDs of the seed set whose total cost does not exceed the budget.
+    """
     # 1. Initialization
-    adjacency = {} # adjacency[v] = neighbors of v [(N(v))]
-    degree = {} # degree[v] = current degree of v [(d(v))]
-    residual_threshold = {} # residual_threshold[v] = residual number of seeded neighbors required to seed v [k(v)]
+    adjacency = {}  # adjacency[v] = neighbors of v [(N(v))]
+    degree = {}  # degree[v] = current degree of v [(d(v))]
+    residual_threshold = {}  # residual_threshold[v] = residual number of seeded neighbors required to seed v [k(v)]
 
     for NI in graph.Nodes():
         v = NI.GetId()
         nbrs = {NI.GetNbrNId(i) for i in range(NI.GetDeg())}
-        nbrs.discard(v) # Ignore self-loops so a vertex cannot count itself as a neighbor.
+        nbrs.discard(v)  # Ignore self-loops so a vertex cannot count itself as a neighbor.
         adjacency[v] = nbrs
         degree[v] = len(nbrs)
         residual_threshold[v] = math.ceil(degree[v] / 2)
 
-    universe = set(adjacency) # vertices yet to be evaluated
-    seed_set_candidates = [] # candidate vertices to be in the seed set
+    universe = set(adjacency)  # vertices yet to be evaluated
+    seed_set_candidates = []  # candidate vertices to be in the seed set
 
     # 2. Pre-evaluate case 1, case 2 and case 3 candidates
     # Case 1: If there exists v in U such as k(v) = 0
@@ -27,13 +52,13 @@ def wtss(graph, costs, budget):
     case_2_vertices = {v for v in universe if degree[v] < residual_threshold[v]}
 
     # Case 3: Fallback, will select a v that maximizes the cost-effectiveness.
-    case_3_vertices_heap = [] # Handled greedily with a heap for performance reasons.
+    case_3_vertices_heap = []  # Handled greedily with a heap for performance reasons.
 
     # Push function for the heap
     def push(v):
         if degree[v] > 0:
             score = (costs[v] * residual_threshold[v] / (degree[v] * (degree[v] + 1)))
-            heapq.heappush(case_3_vertices_heap,(-score, v, degree[v], residual_threshold[v]))
+            heapq.heappush(case_3_vertices_heap, (-score, v, degree[v], residual_threshold[v]))
             return
 
     # Refresh function to update u's case
@@ -45,7 +70,7 @@ def wtss(graph, costs, budget):
             case_2_vertices.add(u)
         push(u)
 
-    for v in universe: push(v) # heap initialization
+    for v in universe: push(v)  # heap initialization
 
     # 3. Main loop
     while universe:
@@ -62,7 +87,7 @@ def wtss(graph, costs, budget):
             # Recheck the conditions because the classification sets may stale entries following earlier updates
             if v not in universe or not (degree[v] < residual_threshold[v]):
                 continue
-            seed_set_candidates.append(v) # This vertex must be selected as a seed.
+            seed_set_candidates.append(v)  # This vertex must be selected as a seed.
             # Treat the selected seed as activated when updating neighbors.
             v_is_seeded = True
         # Case 3: Select the remaining vertex with the best greedy cost-effectiveness

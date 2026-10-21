@@ -1,3 +1,26 @@
+"""
+Parallel version of main.py: runs the nine experiments concurrently.
+
+The same three experiments (budget variation, edges removal, vertices removal) are
+run for the three cost functions (random, degree, average neighbor degree), giving
+nine independent jobs distributed over a pool of worker processes. Since SNAP graphs
+cannot be pickled, each worker loads the graph from an edge-list file and builds its
+own cost dictionaries; only strings, numbers and results travel between processes.
+In test mode the random subgraph is generated once and saved to an edge-list file
+so that all workers load exactly the same graph.
+
+Command line arguments:
+    -d, --dataset    Path of the graph edge list (required).
+    --test           Use a random connected subgraph (5% of the nodes).
+    -b, --budget     Seed-selection budget (default: 20% of the nodes times the
+                     average random cost).
+    -s, --save-path  Folder where plots are saved (default: ./results).
+    -w, --workers    Maximum number of worker processes (default: 9).
+
+Example:
+    python main_parallel.py -d data/graph.txt --test -w 4
+"""
+
 import os
 import math
 import time
@@ -18,7 +41,6 @@ from src.seedset.wtss import wtss
 from src.seedset.centrality_cost_seeds_greedy import (
     centrality_cost_seeds_greedy,
 )
-
 
 # ================================================================
 # Configuration
@@ -62,7 +84,6 @@ parser.add_argument(
     help="Maximum number of parallel worker processes",
 )
 
-
 # ================================================================
 # Worker-local state
 # These objects are created separately in every worker process.
@@ -75,9 +96,19 @@ _WORKER_EXPERIMENTS = None
 
 def initialize_worker(graph_path, random_seed):
     """
-    Initialize graph, costs, and experiment implementations locally.
+    Function: initialize_worker
 
-    No SNAP objects are sent between processes.
+    Initializer executed once in every worker process. Seeds the random generator, loads the
+    graph from file, computes the three cost dictionaries (random, degree, average neighbor
+    degree) and registers the experiment functions in module-level variables, so that no
+    SNAP object has to be sent between processes.
+
+    Args:
+        graph_path (str): Path of the edge-list file to load.
+        random_seed (int): Seed for Python's random module, so random costs are reproducible.
+
+    Returns:
+        None: Stores the graph, costs and experiments in the worker-local globals.
     """
 
     global _WORKER_GRAPH
@@ -133,13 +164,32 @@ def initialize_worker(graph_path, random_seed):
 # ================================================================
 
 def execute_experiment(
-    experiment_name,
-    experiment_type,
-    cost_type,
-    save_path,
-    budget,
-    random_seed,
+        experiment_name,
+        experiment_type,
+        cost_type,
+        save_path,
+        budget,
+        random_seed,
 ):
+    """
+    Function: execute_experiment
+
+    Runs one experiment inside a worker process. Builds the (costs, algorithm) pairs for the
+    three seed-selection algorithms with the requested cost type, runs the experiment on the
+    worker's graph, saves the plot, and returns the results with the elapsed time.
+
+    Args:
+        experiment_name (str): Unique experiment name, also used as the plot title.
+        experiment_type (str): 'budget', 'edges' or 'vertices'.
+        cost_type (str): 'random', 'degree' or 'avg_neighbor_degree'.
+        save_path (str): Directory where the plot is saved.
+        budget (int): Seed-selection budget (ignored by the budget experiment, which varies it itself).
+        random_seed (int): Random seed (currently unused here; seeding is done in initialize_worker).
+
+    Returns:
+        tuple: (experiment_name (str), results (dict mapping each algorithm label to its results dict), elapsed (float, seconds)).
+    """
+
     global _WORKER_GRAPH
     global _WORKER_COSTS
     global _WORKER_EXPERIMENTS
@@ -224,10 +274,17 @@ def execute_experiment(
 
 def save_snap_graph_as_edgelist(graph, file_path):
     """
-    Save a SNAP graph as a plain-text edge list.
+    Function: save_snap_graph_as_edgelist
 
-    This allows worker processes to load the exact same subgraph
-    without trying to pickle a SWIG-backed SNAP object.
+    Saves a SNAP graph as a plain-text edge list, one 'source target' pair per line, so
+    worker processes can load the same subgraph without pickling a SWIG-backed SNAP object.
+
+    Args:
+        graph (snap.TUNGraph): Graph to save.
+        file_path (str): Output file path.
+
+    Returns:
+        None: The file is written to disk.
     """
 
     with open(file_path, "w", encoding="utf-8") as file:
@@ -242,6 +299,21 @@ def save_snap_graph_as_edgelist(graph, file_path):
 # ================================================================
 
 def main():
+    """
+    Function: main
+
+    Entry point of the parallel pipeline. Parses and validates arguments, loads the graph
+    (generating and saving a random subgraph in test mode), computes the budget, launches
+    the nine experiments in a ProcessPoolExecutor, collects results and timings, prints a
+    time summary, and raises an error if any experiment failed.
+
+    Returns:
+        None: Results are printed and plots are saved.
+
+    Raises:
+        RuntimeError: If one or more experiments failed.
+    """
+
     args = parser.parse_args()
 
     if args.workers < 1:
@@ -411,9 +483,9 @@ def main():
     total_start = time.perf_counter()
 
     with ProcessPoolExecutor(
-        max_workers=worker_count,
-        initializer=initialize_worker,
-        initargs=(graph_path, RANDOM_SEED),
+            max_workers=worker_count,
+            initializer=initialize_worker,
+            initargs=(graph_path, RANDOM_SEED),
     ) as executor:
 
         future_to_name = {}
@@ -463,9 +535,9 @@ def main():
     print("=" * 70)
 
     for name, elapsed in sorted(
-        timings.items(),
-        key=lambda item: item[1],
-        reverse=True,
+            timings.items(),
+            key=lambda item: item[1],
+            reverse=True,
     ):
         print(f"{name:<48} {elapsed:>9.2f} s")
 
@@ -492,6 +564,7 @@ def main():
 
     total_elapsed = time.perf_counter() - total_start
     print(f"\nTotal parallel execution time: {total_elapsed:.2f} seconds")
+
 
 if __name__ == "__main__":
     main()

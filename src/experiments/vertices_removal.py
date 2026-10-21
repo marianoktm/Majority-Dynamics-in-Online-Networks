@@ -1,9 +1,39 @@
+"""
+Vertices removal experiment.
+
+Computes a seed set once on the original graph and then measures how its influence
+changes as randomly chosen vertices, together with their neighbors, are progressively
+removed from a copy of the graph (robustness of the seed set to node failures).
+"""
+
 import random
 import snap
 
 from src import simulate_cascade
 
+
 def vertices_removal_experiment(graph, costs, budget, seed_set_function, max_steps=None, seed=None):
+    """
+    Function: vertices_removal_experiment
+
+    Computes a seed set on the original graph, then repeatedly removes a random node
+    together with its neighbors (on a copy) and measures the influence of the surviving
+    seeds after each step.
+
+    Args:
+        graph (snap.TUNGraph): Undirected graph (not modified).
+        costs (dict): Maps each node ID (int) to its cost (int).
+        budget (int): Maximum total cost allowed for the seed set.
+        seed_set_function (callable): Function (graph, costs, budget) returning a seed set.
+        max_steps (int, optional): Maximum number of removal steps; until the graph is empty if None. Must be non-negative.
+        seed (int, optional): Seed for the random node choice.
+
+    Returns:
+        dict: Maps cumulative number of removed nodes (int) to the number of influenced nodes (int).
+
+    Raises:
+        ValueError: If max_steps is negative.
+    """
     if max_steps is not None and max_steps < 0:
         raise ValueError("max_steps must be non-negative")
 
@@ -35,7 +65,7 @@ def vertices_removal_experiment(graph, costs, budget, seed_set_function, max_ste
         influence_set = simulate_cascade.simulate_cascade(graph=graph_copy, seed_set=active_seed_set)
         results[cumulatively_removed] = len(influence_set)
 
-        #print(f"Step {step}: Cumulatively removed = {cumulatively_removed}, Nodes left = {len(remaining)}, Active seeds = {len(active_seed_set)}, Influence = {len(influence_set)}")
+        # print(f"Step {step}: Cumulatively removed = {cumulatively_removed}, Nodes left = {len(remaining)}, Active seeds = {len(active_seed_set)}, Influence = {len(influence_set)}")
 
         # Stop if the graph is empty or the step limit is reached.
         if not remaining:
@@ -57,6 +87,6 @@ def vertices_removal_experiment(graph, costs, budget, seed_set_function, max_ste
 
         cumulatively_removed += removed_this_step
         step += 1
-        #print(f"Removed node {v} and its neighbors: {removed_this_step} nodes")
+        # print(f"Removed node {v} and its neighbors: {removed_this_step} nodes")
 
     return results
