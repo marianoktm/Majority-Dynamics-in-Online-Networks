@@ -4,7 +4,6 @@ Project for the **Social Network** course — University of Salerno, academic ye
 
 This project implements and compares several algorithms that select a **seed set** of nodes in a social network under a **budget constraint**, where every node has a cost. The quality of a seed set is measured by simulating a **majority-threshold cascade** and counting how many nodes end up influenced. The robustness of each seed set is also tested against edge and vertex failures.
 
----
 
 ## Table of Contents
 
@@ -16,7 +15,6 @@ This project implements and compares several algorithms that select a **seed set
 - [Installation](#installation)
 - [Usage](#usage)
 
----
 
 ## Problem Statement
 
@@ -24,7 +22,6 @@ Given an undirected graph `G = (V, E)`, a cost `c(v)` for every node and a budge
 
 **Diffusion model (majority threshold).** A node `v` becomes active as soon as at least `⌈deg(v) / 2⌉` of its neighbors are active. Starting from the seed set, activations are applied in synchronous rounds until no new node becomes active. The size of the final active set is denoted `|Inf[G, S]|`.
 
----
 
 ## Implemented Algorithms
 
@@ -56,7 +53,6 @@ The candidates are finally filtered to respect the budget.
 
 Ranks every node by `degree centrality / cost` and adds nodes in that order whenever they fit in the remaining budget.
 
----
 
 ## Cost Functions
 
@@ -68,7 +64,6 @@ Three ways of assigning an integer cost to the nodes (`src/costs_functions.py`):
 | **Degree** | `⌈deg(v) / 2⌉` |
 | **Average neighbor degree** | `max(1, ⌈average degree of v's neighbors⌉)` |
 
----
 
 ## Experiments
 
@@ -80,7 +75,6 @@ Each experiment is run for every combination of **cost function × algorithm** (
 
 For experiments 2 and 3 the default budget is `20% of |V| × average random cost`, unless specified with `-b`.
 
----
 
 ## Project Structure
 
@@ -108,7 +102,6 @@ Social Network Project/
         └── wtss.py
 ```
 
----
 
 ## Installation
 
@@ -127,7 +120,6 @@ pip install snap-stanford networkx matplotlib
 
 > `snap-stanford` ships prebuilt wheels only for some Python versions and platforms. If the installation fails, try an older Python version or check the [SNAP.py documentation](https://snap.stanford.edu/snappy/).
 
----
 
 ## Usage
 
