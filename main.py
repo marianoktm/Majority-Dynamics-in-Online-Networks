@@ -1,7 +1,6 @@
 import os
 import random
 from itertools import product
-
 import snap
 import networkx
 import matplotlib.pyplot as pyplot
@@ -12,10 +11,10 @@ from src import graph_utils, costs_functions, plotting
 from src.experiments.run_experiment import run_experiment
 from src.experiments import budget_variation, edges_removal, vertices_removal
 
-from src.seedset.cost_seeds_greedy import cost_seeds_greedy, cost_seeds_greedy_best
 from src.seedset.wtss import wtss
 from src.seedset.centrality_cost_seeds_greedy import centrality_cost_seeds_greedy
 
+from src.seedset.cost_seeds_greedy_lazy import cost_seeds_greedy
 
 # Parser
 parser = argparse.ArgumentParser()
@@ -99,17 +98,17 @@ def main():
 
     # Tuples of seed_set_functions and graph_costs to run the experiments easily
     experiment_pairs_rc= dict()
-    experiment_pairs_rc["random-costs-cost-seeds-greedy"] = (random_costs, cost_seeds_greedy_best)
+    experiment_pairs_rc["random-costs-cost-seeds-greedy"] = (random_costs, cost_seeds_greedy)
     experiment_pairs_rc["random-costs-wtss"] = (random_costs, wtss)
     experiment_pairs_rc["random-costs-centrality-cost-seeds-greedy"] = (random_costs, centrality_cost_seeds_greedy)
 
     experiment_pairs_dc = dict()
-    experiment_pairs_dc["degree-costs-cost-seeds-greedy"] = (degree_costs, cost_seeds_greedy_best)
+    experiment_pairs_dc["degree-costs-cost-seeds-greedy"] = (degree_costs, cost_seeds_greedy)
     experiment_pairs_dc["degree-costs-wtss"] = (degree_costs, wtss)
     experiment_pairs_dc["degree-costs-centrality-cost-seeds-greedy"] = (degree_costs, centrality_cost_seeds_greedy)
 
     experiment_pairs_andc = dict()
-    experiment_pairs_andc["avg-neighbor-degree-costs-cost-seeds-greedy"] = (avg_neighbor_degree_costs, cost_seeds_greedy_best)
+    experiment_pairs_andc["avg-neighbor-degree-costs-cost-seeds-greedy"] = (avg_neighbor_degree_costs, cost_seeds_greedy)
     experiment_pairs_andc["avg-neighbor-degree-costs-wtss"] = (avg_neighbor_degree_costs, wtss)
     experiment_pairs_andc["avg-neighbor-degree-costs-centrality-cost-seeds-greedy"] = (avg_neighbor_degree_costs, centrality_cost_seeds_greedy)
     

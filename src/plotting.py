@@ -3,7 +3,7 @@ import os
 
 import matplotlib.pyplot as plt
 
-timestamp = datetime.now().strftime("%Y-%m-%d at %H-%M-%S")
+timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
 def plot_experiment_results(data, xlabel="xlabel", ylabel="ylabel",
                             title="title", figsize=(10, 6),
@@ -38,9 +38,12 @@ def plot_experiment_results(data, xlabel="xlabel", ylabel="ylabel",
 
     # Optional file export
     if save_path:
-        filename = f"{title} {timestamp}.png"
-        save_file_path = os.path.join(save_path, filename)
+        timestamp_directory = os.path.join(save_path, timestamp)
+        os.makedirs(timestamp_directory, exist_ok=True)
+
+        filename = f"{title}.png"
+        save_file_path = os.path.join(timestamp_directory, filename)
         plt.savefig(save_file_path, dpi=300, bbox_inches='tight')
-        print(f"Plot \"{title}.png\" successfully saved to {save_path}")
+        print(f"Plot \"{filename}\" successfully saved to {timestamp_directory}")
 
     plt.show()
