@@ -1,4 +1,4 @@
-# Majority Dynamics in Online Network
+# Majority Dynamics in Online Networks
 
 Project for the **Social Network** course — University of Salerno, academic year 2025/26.
 
